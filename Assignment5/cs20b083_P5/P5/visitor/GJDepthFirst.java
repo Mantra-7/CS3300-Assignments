@@ -10,7 +10,7 @@ import java.util.*;
  * Provides default methods which visit each node in the tree in depth-first
  * order.  Your visitors may extend this class.
  */
-public class GJDepthFirst<R,A> implements GJVisitor<String,A> {
+public class GJDepthFirst<R,A> implements GJVisitor<String,String> {
    //
    // Auto class visitors--probably don't need to be overridden.
    //
@@ -22,15 +22,15 @@ public class GJDepthFirst<R,A> implements GJVisitor<String,A> {
       System.out.println(s);
    }
 
-   void print_decl(String type, String name)
+   void declare(String name)
    {
-      print("\n\t."+type);
+      print("\n\t.text");
       print("\t.globl "+name);
    }
 
-   void print_method_setup(String name, Integer maxStackSpace)
+   void method_enter(String name, Integer maxStackSpace)
    {
-      print_decl("text", name);
+      declare(name);
       print(name+":");
       print("\t\tsw $fp, 0($sp)");
       print("\t\tsw $ra, -4($sp)");
@@ -38,7 +38,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<String,A> {
       print("\t\tsubu $sp, $sp, "+(4*maxStackSpace+8));
    }
 
-   void print_method_exit(Integer maxStackSpace)
+   void method_exit(Integer maxStackSpace)
    {
       print("\t\tlw $ra, -4($fp)");
       print("\t\tlw $fp, 0($fp)");
@@ -46,14 +46,14 @@ public class GJDepthFirst<R,A> implements GJVisitor<String,A> {
       print("\t\tj $ra");
    }
 
-   void print_basic_methods()
+   void basic_methods()
    {
-      print_decl("text", "_halloc");
+      declare("_halloc");
       print("_halloc:");
       print("\t\tli $v0, 9");
       print("\t\tsyscall");
       print("\t\tj $ra");
-      print_decl("text", "_print");
+      declare("_print");
       print("_print:");
       print("\t\tli $v0, 1");
       print("\t\tsyscall");
@@ -73,7 +73,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<String,A> {
       else print("\t\tla "+reg+", "+val);
    }
 
-   public String visit(NodeList n, A argu) {
+   public String visit(NodeList n, String argu) {
       String _ret=null;
       for ( Enumeration<Node> e = n.elements(); e.hasMoreElements(); ) {
          e.nextElement().accept(this,argu);
@@ -81,7 +81,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<String,A> {
       return _ret;
    }
 
-   public String visit(NodeListOptional n, A argu) {
+   public String visit(NodeListOptional n, String argu) {
       if ( n.present() ) {
          String _ret=null;
          for ( Enumeration<Node> e = n.elements(); e.hasMoreElements(); ) {
@@ -93,14 +93,14 @@ public class GJDepthFirst<R,A> implements GJVisitor<String,A> {
          return null;
    }
 
-   public String visit(NodeOptional n, A argu) {
+   public String visit(NodeOptional n, String argu) {
       if ( n.present() )
          return n.node.accept(this,argu);
       else
          return null;
    }
 
-   public String visit(NodeSequence n, A argu) {
+   public String visit(NodeSequence n, String argu) {
       String _ret=null;
       for ( Enumeration<Node> e = n.elements(); e.hasMoreElements(); ) {
          e.nextElement().accept(this,argu);
@@ -108,7 +108,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<String,A> {
       return _ret;
    }
 
-   public String visit(NodeToken n, A argu) { return n.tokenImage; }
+   public String visit(NodeToken n, String argu) { return n.tokenImage; }
 
    //
    // User-generated visitor methods below
@@ -131,17 +131,17 @@ public class GJDepthFirst<R,A> implements GJVisitor<String,A> {
     * f13 -> ( Procedure() )*
     * f14 -> <EOF>
     */
-   public String visit(Goal n, A argu) 
+   public String visit(Goal n, String argu) 
    {
       Integer maxStackSpace = Integer.parseInt(n.f5.accept(this, null));
 
-      print_method_setup("main", maxStackSpace);
+      method_enter("main", maxStackSpace);
       n.f10.accept(this, null);
-      print_method_exit(maxStackSpace);
+      method_exit(maxStackSpace);
 
       n.f13.accept(this, null);
 
-      print_basic_methods();
+      basic_methods();
 
       return null;
    }
@@ -161,14 +161,14 @@ public class GJDepthFirst<R,A> implements GJVisitor<String,A> {
     * f11 -> "END"
     * f12 -> ( SpillInfo() )?
     */
-   public String visit(Procedure n, A argu) 
+   public String visit(Procedure n, String argu) 
    {
       String mname = (String)n.f0.accept(this, null);
       Integer maxStackSpace = Integer.parseInt(n.f5.accept(this, null));
 
-      print_method_setup(mname, maxStackSpace);
+      method_enter(mname, maxStackSpace);
       n.f10.accept(this, null);
-      print_method_exit(maxStackSpace);
+      method_exit(maxStackSpace);
 
       return null;
    }
@@ -176,7 +176,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<String,A> {
    /**
     * f0 -> ( ( Label() )? Stmt() )*
     */
-   public String visit(StmtList n, A argu) 
+   public String visit(StmtList n, String argu) 
    {
       printLabel = true;
       n.f0.accept(this, null);
@@ -198,7 +198,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<String,A> {
     *       | PassArgStmt()
     *       | CallStmt()
     */
-   public String visit(Stmt n, A argu) 
+   public String visit(Stmt n, String argu) 
    {
       printLabel = false;
       n.f0.accept(this, null);
@@ -209,7 +209,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<String,A> {
    /**
     * f0 -> "NOOP"
     */
-   public String visit(NoOpStmt n, A argu) 
+   public String visit(NoOpStmt n, String argu) 
    {
       return null;
    }
@@ -217,7 +217,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<String,A> {
    /**
     * f0 -> "ERROR"
     */
-   public String visit(ErrorStmt n, A argu) 
+   public String visit(ErrorStmt n, String argu) 
    {
       return null;
    }
@@ -227,7 +227,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<String,A> {
     * f1 -> Reg()
     * f2 -> Label()
     */
-   public String visit(CJumpStmt n, A argu) 
+   public String visit(CJumpStmt n, String argu) 
    {
       String reg = n.f1.accept(this, null);
       String lab = n.f2.accept(this, null);
@@ -239,7 +239,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<String,A> {
     * f0 -> "JUMP"
     * f1 -> Label()
     */
-   public String visit(JumpStmt n, A argu) 
+   public String visit(JumpStmt n, String argu) 
    {
       String lab = n.f1.accept(this, null);
       print("\t\tb "+lab);
@@ -252,7 +252,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<String,A> {
     * f2 -> IntegerLiteral()
     * f3 -> Reg()
     */
-   public String visit(HStoreStmt n, A argu) 
+   public String visit(HStoreStmt n, String argu) 
    {
       String r1 = n.f1.accept(this, null);
       Integer offset = Integer.parseInt(n.f2.accept(this, null));
@@ -267,7 +267,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<String,A> {
     * f2 -> Reg()
     * f3 -> IntegerLiteral()
     */
-   public String visit(HLoadStmt n, A argu) 
+   public String visit(HLoadStmt n, String argu) 
    {
       String r1 = n.f1.accept(this, null);
       String r2 = n.f2.accept(this, null);
@@ -281,11 +281,11 @@ public class GJDepthFirst<R,A> implements GJVisitor<String,A> {
     * f1 -> Reg()
     * f2 -> Exp()
     */
-   public String visit(MoveStmt n, A argu) 
+   public String visit(MoveStmt n, String argu) 
    {
       String r1 = n.f1.accept(this, null);
-      String val = n.f2.accept(this, null);
-      move(r1, val);
+      String val = n.f2.accept(this, r1);
+      if(n.f2.f0.which!=1) move(r1, val);
       return null;
    }
 
@@ -293,7 +293,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<String,A> {
     * f0 -> "PRINT"
     * f1 -> SimpleExp()
     */
-   public String visit(PrintStmt n, A argu) 
+   public String visit(PrintStmt n, String argu) 
    {
       String val = n.f1.accept(this, null);
       move("$a0", val);
@@ -306,7 +306,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<String,A> {
     * f1 -> Reg()
     * f2 -> SpilledArg()
     */
-   public String visit(ALoadStmt n, A argu) 
+   public String visit(ALoadStmt n, String argu) 
    {
       String reg = n.f1.accept(this, null);
       Integer offset = Integer.parseInt(n.f2.accept(this, null));
@@ -319,7 +319,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<String,A> {
     * f1 -> SpilledArg()
     * f2 -> Reg()
     */
-   public String visit(AStoreStmt n, A argu) 
+   public String visit(AStoreStmt n, String argu) 
    {
       Integer offset = Integer.parseInt(n.f1.accept(this, null));
       String reg = n.f2.accept(this, null);
@@ -332,7 +332,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<String,A> {
     * f1 -> IntegerLiteral()
     * f2 -> Reg()
     */
-   public String visit(PassArgStmt n, A argu) 
+   public String visit(PassArgStmt n, String argu) 
    {
       Integer offset = Integer.parseInt(n.f1.accept(this, null));
       String reg = n.f2.accept(this, null);
@@ -344,7 +344,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<String,A> {
     * f0 -> "CALL"
     * f1 -> SimpleExp()
     */
-   public String visit(CallStmt n, A argu) 
+   public String visit(CallStmt n, String argu) 
    {
       String method = n.f1.accept(this, null);
       move("$v0",method);
@@ -357,16 +357,16 @@ public class GJDepthFirst<R,A> implements GJVisitor<String,A> {
     *       | BinOp()
     *       | SimpleExp()
     */
-   public String visit(Exp n, A argu) 
+   public String visit(Exp n, String argu) 
    {
-      return n.f0.accept(this, null);
+      return n.f0.accept(this, argu);
    }
 
    /**
     * f0 -> "HALLOCATE"
     * f1 -> SimpleExp()
     */
-   public String visit(HAllocate n, A argu) 
+   public String visit(HAllocate n, String argu) 
    {
       String size = n.f1.accept(this, null);
       move("$a0",size);
@@ -379,19 +379,22 @@ public class GJDepthFirst<R,A> implements GJVisitor<String,A> {
     * f1 -> Reg()
     * f2 -> SimpleExp()
     */
-   public String visit(BinOp n, A argu) 
+   public String visit(BinOp n, String argu) 
    {
+      String rs = argu;
       String op = n.f0.accept(this, null);
       String r1 = n.f1.accept(this, null);
       String r2 = n.f2.accept(this, null);
 
-      if(op == "LE") print("\t\tsle $v0, "+r1+", "+r2);
-      else if(op == "NE") print("\t\tsne $v0, "+r1+", "+r2);
-      else if(op == "PLUS") print("\t\tadd $v0, "+r1+", "+r2);
-      else if(op == "MINUS") print("\t\tsub $v0, "+r1+", "+r2);
-      else if(op == "TIMES") print("\t\tmul $v0, "+r1+", "+r2);
-      else print("\t\tdiv $v0, "+r1+", "+r2);
-      return "$v0";
+      if(op == "LE") op = "sle";
+      else if(op == "NE") op = "sne";
+      else if(op == "PLUS") op = "add";
+      else if(op == "MINUS") op = "sub";
+      else if(op == "TIMES") op = "mul";
+      else if(op == "DIV") op = "div";
+
+      print("\t\t"+op+" "+rs+", "+r1+", "+r2);
+      return null;
    }
 
    /**
@@ -402,7 +405,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<String,A> {
     *       | "TIMES"
     *       | "DIV"
     */
-   public String visit(Operator n, A argu) 
+   public String visit(Operator n, String argu) 
    {
       return n.f0.accept(this, null);
    }
@@ -411,7 +414,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<String,A> {
     * f0 -> "SPILLEDARG"
     * f1 -> IntegerLiteral()
     */
-   public String visit(SpilledArg n, A argu) 
+   public String visit(SpilledArg n, String argu) 
    {
       return n.f1.accept(this, null);
    }
@@ -421,7 +424,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<String,A> {
     *       | IntegerLiteral()
     *       | Label()
     */
-   public String visit(SimpleExp n, A argu) 
+   public String visit(SimpleExp n, String argu) 
    {
       return n.f0.accept(this, null);
    }
@@ -452,7 +455,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<String,A> {
     *       | "v0"
     *       | "v1"
     */
-   public String visit(Reg n, A argu) 
+   public String visit(Reg n, String argu) 
    {
       return "$"+n.f0.accept(this, null);
    }
@@ -460,7 +463,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<String,A> {
    /**
     * f0 -> <INTEGER_LITERAL>
     */
-   public String visit(IntegerLiteral n, A argu) 
+   public String visit(IntegerLiteral n, String argu) 
    {
       return n.f0.tokenImage;
    }
@@ -468,7 +471,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<String,A> {
    /**
     * f0 -> <IDENTIFIER>
     */
-   public String visit(Label n, A argu) 
+   public String visit(Label n, String argu) 
    {
       if(printLabel) print(n.f0.tokenImage+":");
       return n.f0.tokenImage;
@@ -478,7 +481,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<String,A> {
     * f0 -> "//"
     * f1 -> SpillStatus()
     */
-   public String visit(SpillInfo n, A argu) 
+   public String visit(SpillInfo n, String argu) 
    {
       return null;
    }
@@ -487,7 +490,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<String,A> {
     * f0 -> <SPILLED>
     *       | <NOTSPILLED>
     */
-   public String visit(SpillStatus n, A argu) 
+   public String visit(SpillStatus n, String argu) 
    {
       return null;
    }
