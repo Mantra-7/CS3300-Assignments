@@ -1080,7 +1080,7 @@ YY_RULE_SETUP
 case 51:
 YY_RULE_SETUP
 #line 68 "A1.l"
-{ printf ("Lexer error: %d\n", yytext[0]); exit (1); }
+{ printf ("//Failed to parse input code"); exit (1); }
 	YY_BREAK
 case 52:
 YY_RULE_SETUP

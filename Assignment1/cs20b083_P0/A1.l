@@ -65,4 +65,4 @@ IDENTIFIER [a-zA-Z_][a-zA-Z0-9_]*
 	setVal
 	return ID;
 }
-. { printf ("Lexer error: %d\n", yytext[0]); exit (1); }
+. { printf ("//Failed to parse input code"); exit (1); }

@@ -73,12 +73,18 @@
 #include <string.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <stdarg.h>
 
-int yylex (void);
-void yyerror (const char *);
+#define processTerminal(nt, terminal); if(store) nt=newList(terminal);\
+						else code = concatList(2, code, newList(terminal));
 
-char indent[1000]="";
-int store=0;
+#define processMacroExp(name, lp, exp, rp); store--;\
+						addMacro(&mac_exp_list, name->head, concatList(3, lp, exp, rp));\
+						clearList(&arg_list);
+
+#define processMacroStmt(name, stmt); store--;\
+						addMacro(&mac_stmt_list, name->head, stmt);\
+						clearList(&arg_list);
 
 typedef struct cNode {
 	void *data;
@@ -108,214 +114,18 @@ typedef struct mac_node {
 	struct mac_node *next;
 } mac_node;
 
+int yylex (void);
+void yyerror (const char *);
+
+int store=0;
+bool found=false;
+cList *code = NULL;
+
 cList arg_list = {
 	.head = NULL,
 	.tail = NULL,
 	.size = 0
 };
-
-void empty_list(cList *clist)
-{
-	clist->head = NULL;
-	clist->tail = NULL;
-	clist->size = 0;
-}
-
-void printNodeList(cList *clist)
-{
-	if(clist==NULL) return;
-	cNode *node = clist->head;
-	while (node != NULL) 
-	{
-		Node *n = (Node *)node->data;
-		printf("%s ", n->id);
-		node = node->next;
-	}
-}
-
-cList *newList(cNode *cnode)
-{
-	if(cnode==NULL) return NULL;
-	
-	cNode *tmp = (cNode *)malloc(sizeof(cNode));
-	tmp->data = cnode->data;
-	tmp->next = NULL;
-
-	cList *clist = (cList *)malloc(sizeof(cList));
-	clist->head = tmp;
-	clist->tail = tmp;
-	clist->size = 1;
-	return clist;
-}
-
-cList *addNode(cList *clist, const cNode *cnode)
-{
-	cNode *tmp = malloc(sizeof(cNode));
-	tmp->data = cnode->data;
-	tmp->next = NULL;
-
-	if(clist==NULL)
-	{
-		cList *nlist = malloc(sizeof(cList));
-		nlist->head = tmp;
-		nlist->tail = tmp;
-		nlist->size = 1;
-		return nlist;
-	}
-
-	if(clist->head == NULL) 
-	{
-		clist->head = tmp;
-		clist->tail = tmp;
-		clist->size=1;
-		return clist;
-	}
-
-	clist->tail->next = tmp;
-	clist->tail = tmp;
-	clist->size++;
-	return clist;
-}
-
-void concatList(cList *l1, cList *l2)
-{
-	if(l2==NULL) return;
-	l1->tail->next = l2->head;
-	l1->tail = l2->tail;
-	l1->size += l2->size;
-}
-
-cList *copyList(cList *clist)
-{
-	if(clist==NULL) return NULL;
-
-	cList *cpy = NULL;
-	cNode *tmp = clist->head;
-	while(tmp != NULL)
-	{
-		cpy = addNode(cpy, tmp);
-		tmp = tmp->next;
-	}
-	return cpy;
-}
-
-void *createTempArgs(int len, bool inList)
-{
-	if(inList)
-	{
-		cList *arglist = NULL;
-		for(int i=1; i<=len; i++)
-		{
-			Node *node = malloc(sizeof(node));
-			char buf[100]="";
-			sprintf(buf, "-%d", i);
-			node->id = strdup(buf);
-
-			cList *list = NULL;
-			cNode *cnode = malloc(sizeof(cNode));
-			cnode->data = node;
-			list = addNode(list, cnode);
-
-			cNode *tmp = malloc(sizeof(cNode));
-			tmp->data = list;
-			arglist = addNode(arglist, tmp);
-		}
-		return arglist;
-	}
-
-	cList *clist = NULL;
-	for(int i=1; i<=len; i++)
-	{
-		Node *node = malloc(sizeof(node));
-		char buf[100];
-		sprintf(buf, "-%d", i);
-		node->id = strdup(buf);
-
-		cNode *cnode = malloc(sizeof(cNode));
-		cnode->data = node;
-		cnode->next = NULL;
-		clist = addNode(clist, cnode);
-	}
-	return clist;
-}
-
-void renameOneArg(void *arg, void *repl_arg, cList/*node*/ *replace)
-{
-	if(replace==NULL) return;
-
-	Node *node = (Node *)arg;
-	cList *list = (cList *)repl_arg;
-
-	cNode *tmp = replace->head;
-	cNode *prev = NULL;
-	while(tmp != NULL) 
-	{
-		Node *n = (Node *)tmp->data;
-		if(strcmp(n->id, node->id) == 0) 
-		{
-			cNode *tmp2 = tmp->next;
-			cList *cpy = copyList(list);
-
-			if(prev==NULL) replace->head=cpy->head;
-			else prev->next = cpy->head;
-			cpy->tail->next = tmp2;
-		}
-		prev = tmp;
-		tmp = tmp->next;
-	}
-}
-
-void replace_args(cList/*node*/ *args, cList/*cList->node*/ *repl_args, cList/*node*/ *replace)
-{
-	if(repl_args==NULL) return;
-
-	cNode *repl_node = repl_args->head;
-	cNode *node = args->head;
-	while(repl_node != NULL)
-	{
-		renameOneArg(node->data, repl_node->data, replace);
-		repl_node = repl_node->next;
-		node = node->next;
-	}
-}
-
-void add_macro(cList/*mac_node*/ *list, cNode/*mac_node*/ *cnode, cList/*node*/ *replace) 
-{
-	replace_args(&arg_list, createTempArgs(arg_list.size, true), replace);
-	
-	mac_node *node = malloc(sizeof(mac_node));
-	Node *n = (Node *)cnode->data;
-	node->name = n->id;
-	node->replace = replace;
-	node->argc = arg_list.size;
-	node->next = NULL;
-
-	cNode *nnode = malloc(sizeof(cNode));
-	nnode->data = node;
-	list = addNode(list, nnode);
-}
-
-cList *replace_macro(cList/*mac_node*/ *list, cNode/*Node*/ *cnode, cList/*clist->node*/ *arglist) 
-{
-	cNode *node = list->head;
-	Node *n = (Node *)cnode->data;
-	
-	while (node != NULL) 
-	{	
-		mac_node *mac = (mac_node *)node->data;
-		int sz = 0;
-		if(arglist) sz = arglist->size;
-
-		if (mac->argc == sz && strcmp(mac->name, n->id) == 0) 
-		{
-			cList *upd = copyList(mac->replace);
-			if(arglist!=NULL) replace_args(createTempArgs(arglist->size, false), arglist, upd);
-			return upd;
-		}
-		node = node->next;
-	}
-	return NULL;
-}
 
 cList mac_stmt_list = {
 	.head = NULL,
@@ -329,7 +139,16 @@ cList mac_exp_list = {
 	.size = 0
 };
 
-#line 333 "A1.tab.c"
+void clearList(cList *clist);
+void printNodeList(cList/*Node*/ *clist);
+cList *newList(cNode *cnode);
+cList *addNode(cList *clist, cNode *cnode);
+cList *concatList(int num, ...);
+void addMacro(cList/*mac_node*/ *list, cNode/*Node*/ *cnode, cList/*node*/ *replace);
+cList *replaceMacro(cList/*mac_node*/ *list, cNode/*Node*/ *cnode, cList/*clist->node*/ *arglist);
+
+
+#line 152 "A1.tab.c"
 
 # ifndef YY_CAST
 #  ifdef __cplusplus
@@ -426,12 +245,12 @@ extern int yydebug;
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 263 "A1.y"
+#line 82 "A1.y"
 
 cNode *node;
 cList *list;
 
-#line 435 "A1.tab.c"
+#line 254 "A1.tab.c"
 
 };
 typedef union YYSTYPE YYSTYPE;
@@ -504,75 +323,71 @@ enum yysymbol_kind_t
   YYSYMBOL_ID = 50,                        /* ID  */
   YYSYMBOL_YYACCEPT = 51,                  /* $accept  */
   YYSYMBOL_Goal = 52,                      /* Goal  */
-  YYSYMBOL_MacDefStar = 53,                /* MacDefStar  */
-  YYSYMBOL_MacDef = 54,                    /* MacDef  */
-  YYSYMBOL_MacDefExp = 55,                 /* MacDefExp  */
+  YYSYMBOL_MainClass = 53,                 /* MainClass  */
+  YYSYMBOL_MacDefStar = 54,                /* MacDefStar  */
+  YYSYMBOL_MacDef = 55,                    /* MacDef  */
   YYSYMBOL_MacDefStmt = 56,                /* MacDefStmt  */
-  YYSYMBOL_StatementStar = 57,             /* StatementStar  */
-  YYSYMBOL_ArgIdefStar = 58,               /* ArgIdefStar  */
-  YYSYMBOL_Statement = 59,                 /* Statement  */
-  YYSYMBOL_MainClass = 60,                 /* MainClass  */
-  YYSYMBOL_Expression = 61,                /* Expression  */
-  YYSYMBOL_PrmExp = 62,                    /* PrmExp  */
-  YYSYMBOL_ExpArgs = 63,                   /* ExpArgs  */
-  YYSYMBOL_ExpArgsEnd = 64,                /* ExpArgsEnd  */
-  YYSYMBOL_CallArgs = 65,                  /* CallArgs  */
-  YYSYMBOL_CallArgsEnd = 66,               /* CallArgsEnd  */
-  YYSYMBOL_TypeDecStar = 67,               /* TypeDecStar  */
-  YYSYMBOL_TypeDec = 68,                   /* TypeDec  */
-  YYSYMBOL_VarDecStar = 69,                /* VarDecStar  */
-  YYSYMBOL_VarDec = 70,                    /* VarDec  */
-  YYSYMBOL_MethDecStar = 71,               /* MethDecStar  */
-  YYSYMBOL_MethDec = 72,                   /* MethDec  */
-  YYSYMBOL_MethArgs = 73,                  /* MethArgs  */
-  YYSYMBOL_MethArgsEnd = 74,               /* MethArgsEnd  */
-  YYSYMBOL_Type = 75,                      /* Type  */
-  YYSYMBOL_Class = 76,                     /* Class  */
-  YYSYMBOL_Public = 77,                    /* Public  */
-  YYSYMBOL_Static = 78,                    /* Static  */
-  YYSYMBOL_Void = 79,                      /* Void  */
-  YYSYMBOL_Main = 80,                      /* Main  */
-  YYSYMBOL_String = 81,                    /* String  */
-  YYSYMBOL_Println = 82,                   /* Println  */
-  YYSYMBOL_Extends = 83,                   /* Extends  */
-  YYSYMBOL_Return = 84,                    /* Return  */
-  YYSYMBOL_Int = 85,                       /* Int  */
-  YYSYMBOL_Boolean = 86,                   /* Boolean  */
-  YYSYMBOL_If = 87,                        /* If  */
-  YYSYMBOL_Else = 88,                      /* Else  */
-  YYSYMBOL_While = 89,                     /* While  */
-  YYSYMBOL_True = 90,                      /* True  */
-  YYSYMBOL_False = 91,                     /* False  */
-  YYSYMBOL_This = 92,                      /* This  */
-  YYSYMBOL_New = 93,                       /* New  */
-  YYSYMBOL_Length = 94,                    /* Length  */
-  YYSYMBOL_Lparen = 95,                    /* Lparen  */
-  YYSYMBOL_Rparen = 96,                    /* Rparen  */
-  YYSYMBOL_Lbrace = 97,                    /* Lbrace  */
-  YYSYMBOL_Rbrace = 98,                    /* Rbrace  */
-  YYSYMBOL_Lbracket = 99,                  /* Lbracket  */
-  YYSYMBOL_Rbracket = 100,                 /* Rbracket  */
-  YYSYMBOL_Semicolon = 101,                /* Semicolon  */
-  YYSYMBOL_Comma = 102,                    /* Comma  */
-  YYSYMBOL_And = 103,                      /* And  */
-  YYSYMBOL_Or = 104,                       /* Or  */
-  YYSYMBOL_Not = 105,                      /* Not  */
-  YYSYMBOL_Noteq = 106,                    /* Noteq  */
-  YYSYMBOL_Lesseq = 107,                   /* Lesseq  */
-  YYSYMBOL_Equal = 108,                    /* Equal  */
-  YYSYMBOL_Add = 109,                      /* Add  */
-  YYSYMBOL_Sub = 110,                      /* Sub  */
-  YYSYMBOL_Mul = 111,                      /* Mul  */
-  YYSYMBOL_Div = 112,                      /* Div  */
-  YYSYMBOL_Dot = 113,                      /* Dot  */
-  YYSYMBOL_SpaceIdef = 114,                /* SpaceIdef  */
-  YYSYMBOL_Idef = 115,                     /* Idef  */
-  YYSYMBOL_IndentIdef = 116,               /* IndentIdef  */
-  YYSYMBOL_IndentSpaceIdef = 117,          /* IndentSpaceIdef  */
-  YYSYMBOL_ArgIdef = 118,                  /* ArgIdef  */
-  YYSYMBOL_MacExpIdef = 119,               /* MacExpIdef  */
-  YYSYMBOL_MacStmtIdef = 120,              /* MacStmtIdef  */
-  YYSYMBOL_Integer = 121                   /* Integer  */
+  YYSYMBOL_MacDefExp = 57,                 /* MacDefExp  */
+  YYSYMBOL_MacIdef = 58,                   /* MacIdef  */
+  YYSYMBOL_ArgIdefStar = 59,               /* ArgIdefStar  */
+  YYSYMBOL_ArgIdef = 60,                   /* ArgIdef  */
+  YYSYMBOL_StatementStar = 61,             /* StatementStar  */
+  YYSYMBOL_Statement = 62,                 /* Statement  */
+  YYSYMBOL_Expression = 63,                /* Expression  */
+  YYSYMBOL_PrmExp = 64,                    /* PrmExp  */
+  YYSYMBOL_ExpArgs = 65,                   /* ExpArgs  */
+  YYSYMBOL_ExpArgsEnd = 66,                /* ExpArgsEnd  */
+  YYSYMBOL_CallArgs = 67,                  /* CallArgs  */
+  YYSYMBOL_CallArgsEnd = 68,               /* CallArgsEnd  */
+  YYSYMBOL_TypeDecStar = 69,               /* TypeDecStar  */
+  YYSYMBOL_TypeDec = 70,                   /* TypeDec  */
+  YYSYMBOL_VarDecStar = 71,                /* VarDecStar  */
+  YYSYMBOL_VarDec = 72,                    /* VarDec  */
+  YYSYMBOL_MethDecStar = 73,               /* MethDecStar  */
+  YYSYMBOL_MethDec = 74,                   /* MethDec  */
+  YYSYMBOL_MethArgs = 75,                  /* MethArgs  */
+  YYSYMBOL_MethArgsEnd = 76,               /* MethArgsEnd  */
+  YYSYMBOL_Type = 77,                      /* Type  */
+  YYSYMBOL_Class = 78,                     /* Class  */
+  YYSYMBOL_Public = 79,                    /* Public  */
+  YYSYMBOL_Static = 80,                    /* Static  */
+  YYSYMBOL_Void = 81,                      /* Void  */
+  YYSYMBOL_Main = 82,                      /* Main  */
+  YYSYMBOL_String = 83,                    /* String  */
+  YYSYMBOL_Println = 84,                   /* Println  */
+  YYSYMBOL_Extends = 85,                   /* Extends  */
+  YYSYMBOL_Return = 86,                    /* Return  */
+  YYSYMBOL_Int = 87,                       /* Int  */
+  YYSYMBOL_Boolean = 88,                   /* Boolean  */
+  YYSYMBOL_If = 89,                        /* If  */
+  YYSYMBOL_Else = 90,                      /* Else  */
+  YYSYMBOL_While = 91,                     /* While  */
+  YYSYMBOL_True = 92,                      /* True  */
+  YYSYMBOL_False = 93,                     /* False  */
+  YYSYMBOL_This = 94,                      /* This  */
+  YYSYMBOL_New = 95,                       /* New  */
+  YYSYMBOL_Length = 96,                    /* Length  */
+  YYSYMBOL_Lparen = 97,                    /* Lparen  */
+  YYSYMBOL_Rparen = 98,                    /* Rparen  */
+  YYSYMBOL_Lbrace = 99,                    /* Lbrace  */
+  YYSYMBOL_Rbrace = 100,                   /* Rbrace  */
+  YYSYMBOL_Lbracket = 101,                 /* Lbracket  */
+  YYSYMBOL_Rbracket = 102,                 /* Rbracket  */
+  YYSYMBOL_Semicolon = 103,                /* Semicolon  */
+  YYSYMBOL_Comma = 104,                    /* Comma  */
+  YYSYMBOL_And = 105,                      /* And  */
+  YYSYMBOL_Or = 106,                       /* Or  */
+  YYSYMBOL_Not = 107,                      /* Not  */
+  YYSYMBOL_Noteq = 108,                    /* Noteq  */
+  YYSYMBOL_Lesseq = 109,                   /* Lesseq  */
+  YYSYMBOL_Equal = 110,                    /* Equal  */
+  YYSYMBOL_Add = 111,                      /* Add  */
+  YYSYMBOL_Sub = 112,                      /* Sub  */
+  YYSYMBOL_Mul = 113,                      /* Mul  */
+  YYSYMBOL_Div = 114,                      /* Div  */
+  YYSYMBOL_Dot = 115,                      /* Dot  */
+  YYSYMBOL_Idef = 116,                     /* Idef  */
+  YYSYMBOL_Integer = 117                   /* Integer  */
 };
 typedef enum yysymbol_kind_t yysymbol_kind_t;
 
@@ -898,18 +713,18 @@ union yyalloc
 #endif /* !YYCOPY_NEEDED */
 
 /* YYFINAL -- State number of the termination state.  */
-#define YYFINAL  24
+#define YYFINAL  23
 /* YYLAST -- Last index in YYTABLE.  */
-#define YYLAST   335
+#define YYLAST   378
 
 /* YYNTOKENS -- Number of terminals.  */
 #define YYNTOKENS  51
 /* YYNNTS -- Number of nonterminals.  */
-#define YYNNTS  71
+#define YYNNTS  67
 /* YYNRULES -- Number of rules.  */
-#define YYNRULES  121
+#define YYNRULES  117
 /* YYNSTATES -- Number of states.  */
-#define YYNSTATES  299
+#define YYNSTATES  292
 
 /* YYMAXUTOK -- Last valid token kind.  */
 #define YYMAXUTOK   305
@@ -963,19 +778,18 @@ static const yytype_int8 yytranslate[] =
 /* YYRLINE[YYN] -- Source line where rule number YYN was defined.  */
 static const yytype_int16 yyrline[] =
 {
-       0,   282,   282,   283,   284,   285,   286,   287,   295,   303,
-     311,   319,   325,   331,   337,   343,   344,   345,   346,   347,
-     356,   367,   377,   390,   401,   414,   425,   437,   438,   447,
-     454,   461,   468,   475,   482,   489,   496,   504,   511,   516,
-     526,   537,   538,   539,   540,   541,   542,   550,   559,   567,
-     574,   575,   576,   582,   589,   590,   591,   592,   602,   603,
-     604,   605,   606,   607,   608,   609,   610,   611,   612,   613,
-     614,   615,   616,   617,   618,   619,   621,   623,   625,   627,
-     629,   631,   633,   635,   637,   639,   641,   643,   645,   647,
-     649,   651,   653,   655,   657,   659,   661,   663,   665,   667,
-     669,   671,   673,   675,   677,   679,   681,   683,   685,   687,
-     689,   691,   693,   695,   697,   703,   712,   718,   724,   725,
-     729,   733
+       0,   101,   101,   103,   105,   106,   108,   109,   111,   115,
+     119,   123,   128,   132,   136,   140,   145,   147,   148,   150,
+     152,   153,   155,   159,   163,   167,   171,   175,   179,   183,
+     194,   198,   202,   206,   210,   214,   218,   222,   226,   230,
+     234,   238,   242,   253,   254,   255,   256,   257,   258,   262,
+     266,   270,   275,   276,   278,   284,   291,   292,   294,   295,
+     300,   301,   302,   303,   304,   305,   306,   307,   308,   309,
+     310,   311,   312,   313,   314,   315,   316,   317,   319,   320,
+     321,   322,   323,   324,   325,   326,   327,   328,   329,   330,
+     331,   332,   333,   334,   335,   336,   337,   338,   339,   340,
+     341,   342,   343,   344,   345,   346,   347,   348,   349,   350,
+     351,   352,   353,   354,   355,   356,   357,   358
 };
 #endif
 
@@ -998,17 +812,17 @@ static const char *const yytname[] =
   "DEFEXP0", "DEFEXP1", "DEFEXP2", "AND", "OR", "NOT", "NOTEQ", "LESSEQ",
   "EQUAL", "ADD", "SUB", "MUL", "DIV", "DOT", "LPAREN", "RPAREN", "LBRACE",
   "RBRACE", "LBRACKET", "RBRACKET", "SEMICOLON", "COMMA", "INTEGER", "ID",
-  "$accept", "Goal", "MacDefStar", "MacDef", "MacDefExp", "MacDefStmt",
-  "StatementStar", "ArgIdefStar", "Statement", "MainClass", "Expression",
-  "PrmExp", "ExpArgs", "ExpArgsEnd", "CallArgs", "CallArgsEnd",
-  "TypeDecStar", "TypeDec", "VarDecStar", "VarDec", "MethDecStar",
-  "MethDec", "MethArgs", "MethArgsEnd", "Type", "Class", "Public",
-  "Static", "Void", "Main", "String", "Println", "Extends", "Return",
-  "Int", "Boolean", "If", "Else", "While", "True", "False", "This", "New",
-  "Length", "Lparen", "Rparen", "Lbrace", "Rbrace", "Lbracket", "Rbracket",
-  "Semicolon", "Comma", "And", "Or", "Not", "Noteq", "Lesseq", "Equal",
-  "Add", "Sub", "Mul", "Div", "Dot", "SpaceIdef", "Idef", "IndentIdef",
-  "IndentSpaceIdef", "ArgIdef", "MacExpIdef", "MacStmtIdef", "Integer", YY_NULLPTR
+  "$accept", "Goal", "MainClass", "MacDefStar", "MacDef", "MacDefStmt",
+  "MacDefExp", "MacIdef", "ArgIdefStar", "ArgIdef", "StatementStar",
+  "Statement", "Expression", "PrmExp", "ExpArgs", "ExpArgsEnd", "CallArgs",
+  "CallArgsEnd", "TypeDecStar", "TypeDec", "VarDecStar", "VarDec",
+  "MethDecStar", "MethDec", "MethArgs", "MethArgsEnd", "Type", "Class",
+  "Public", "Static", "Void", "Main", "String", "Println", "Extends",
+  "Return", "Int", "Boolean", "If", "Else", "While", "True", "False",
+  "This", "New", "Length", "Lparen", "Rparen", "Lbrace", "Rbrace",
+  "Lbracket", "Rbracket", "Semicolon", "Comma", "And", "Or", "Not",
+  "Noteq", "Lesseq", "Equal", "Add", "Sub", "Mul", "Div", "Dot", "Idef",
+  "Integer", YY_NULLPTR
 };
 
 static const char *
@@ -1023,7 +837,7 @@ yysymbol_name (yysymbol_kind_t yysymbol)
 #define yypact_value_is_default(Yyn) \
   ((Yyn) == YYPACT_NINF)
 
-#define YYTABLE_NINF (-121)
+#define YYTABLE_NINF (-17)
 
 #define yytable_value_is_error(Yyn) \
   0
@@ -1032,36 +846,36 @@ yysymbol_name (yysymbol_kind_t yysymbol)
    STATE-NUM.  */
 static const yytype_int16 yypact[] =
 {
-     306,   -30,   -30,   -30,   -30,   -21,   -21,   -21,   -21,    31,
-      33,   306,  -177,  -177,  -177,    -7,    -7,    -7,    -7,  -177,
-      -7,    -7,    -7,    -7,  -177,  -177,    33,    -8,  -177,  -177,
-      -6,     1,    -6,    -6,    -6,     1,    -6,    -6,  -177,    33,
-      -3,  -177,    12,  -177,    14,  -177,    12,     1,    14,    14,
-      -7,     1,    14,  -177,    32,    79,    12,  -177,    92,  -177,
-      -6,   126,    12,    -6,    -6,   165,    -7,    -6,  -177,    47,
-    -177,  -177,    93,    14,  -177,  -177,  -177,   -20,    57,   126,
-      -7,    -7,    -7,   126,    58,    69,    -7,   126,     1,    14,
-    -177,  -177,  -177,  -177,  -177,  -177,    66,     1,   273,  -177,
-    -177,  -177,    28,   165,   165,  -177,    -7,  -177,   165,     1,
-    -177,    12,    73,  -177,   102,    -6,  -177,  -177,  -177,   165,
-     165,   165,    57,  -177,   165,  -177,   165,   165,    57,    12,
-      -6,  -177,  -177,  -177,  -177,  -177,  -177,  -177,  -177,  -177,
-    -177,   252,   252,   252,   252,   252,   252,   252,   252,   252,
-      40,  -177,    58,    -7,     1,  -177,   165,     1,    -7,  -177,
-    -177,  -177,  -177,    57,    92,    47,    80,    58,  -177,  -177,
-    -177,   106,    14,     1,     1,     1,  -177,    63,    74,    68,
-       1,  -177,  -177,   126,    14,    63,  -177,  -177,  -177,  -177,
-    -177,  -177,  -177,  -177,  -177,  -177,    -7,   165,     1,  -177,
-       1,  -177,   165,    73,  -177,  -177,    74,    47,    63,  -177,
-      -7,     1,    -6,    74,   126,   126,  -177,    69,  -177,  -177,
-     165,    74,    57,     1,  -177,   165,    63,  -177,  -177,     1,
-      57,  -177,    -7,  -177,   112,    12,    14,  -177,   109,  -177,
-     165,  -177,  -177,  -177,    -7,    14,     1,  -177,  -177,  -177,
-    -177,    80,  -177,    58,   126,  -177,  -177,   126,    74,   165,
-     165,  -177,     1,    47,    63,    57,  -177,  -177,     1,  -177,
-      12,    14,    47,  -177,  -177,  -177,  -177,    80,     1,   247,
-      47,    12,   122,    69,    14,   125,  -177,   165,  -177,    -7,
-      74,   165,    57,     1,  -177,    74,    57,    57,  -177
+     349,   -32,   -32,   -32,   -32,   -32,   -32,   -32,   -32,    52,
+      57,   349,  -177,  -177,  -177,    22,    22,    22,    22,    22,
+      22,    22,    22,  -177,  -177,    57,    14,  -177,  -177,    15,
+      25,    15,    15,    15,    25,    15,    15,  -177,    57,    14,
+    -177,    36,  -177,    47,  -177,    36,    25,    47,    47,    22,
+      25,    47,  -177,    51,  -177,    92,  -177,    15,    34,    36,
+      15,    15,   283,    22,    15,  -177,    14,  -177,  -177,    94,
+      47,  -177,  -177,  -177,    56,    22,    58,    34,    22,    22,
+      22,    34,    63,    34,    25,    47,  -177,  -177,  -177,  -177,
+    -177,  -177,    22,    25,   316,  -177,  -177,  -177,    43,   283,
+     283,  -177,  -177,   283,    25,    36,    41,  -177,    97,    15,
+     283,  -177,  -177,  -177,   283,   283,   283,    58,  -177,  -177,
+     283,   283,    58,    36,    15,   283,  -177,  -177,  -177,  -177,
+    -177,  -177,  -177,  -177,  -177,  -177,   287,   287,   287,   287,
+     287,   287,   287,   287,   287,    37,  -177,    68,    22,    25,
+    -177,    25,    22,  -177,  -177,  -177,    58,    92,    14,    28,
+      68,  -177,  -177,  -177,   102,    47,    69,    25,  -177,    25,
+      25,    25,  -177,    70,    71,  -177,    34,    47,    25,    70,
+    -177,  -177,  -177,  -177,  -177,  -177,  -177,  -177,  -177,  -177,
+      22,   283,    25,  -177,  -177,   283,    41,  -177,  -177,    71,
+      14,    70,  -177,    22,    25,    15,   283,    71,    71,    34,
+      34,  -177,    88,  -177,  -177,    58,    25,  -177,  -177,   283,
+      70,  -177,    25,    58,  -177,    22,  -177,   116,    36,    47,
+    -177,  -177,  -177,   110,  -177,   283,  -177,    22,    47,    25,
+    -177,  -177,  -177,  -177,    28,  -177,    68,    34,  -177,  -177,
+      34,    71,   283,   283,  -177,    25,    14,    70,    58,  -177,
+    -177,    25,  -177,    36,    47,    14,  -177,  -177,  -177,  -177,
+      28,    25,   157,    14,    36,   117,    63,    47,   121,  -177,
+     283,  -177,    22,    71,   283,    58,    25,  -177,    71,    58,
+      58,  -177
 };
 
 /* YYDEFACT[STATE-NUM] -- Default reduction number in state STATE-NUM.
@@ -1069,62 +883,60 @@ static const yytype_int16 yypact[] =
    means the default is an error.  */
 static const yytype_int8 yydefact[] =
 {
-       3,     0,     0,     0,     0,     0,     0,     0,     0,     0,
-       0,     3,     5,     6,   120,     0,     0,     0,     0,   119,
-       0,     0,     0,     0,     1,    76,    58,     0,     4,    95,
-       0,     0,     0,     0,     0,     0,     0,     0,     2,    58,
-       0,   114,     0,   118,     0,    96,     0,     0,     0,     0,
-       0,     0,     0,    59,   114,     0,     0,    97,     0,   102,
-       0,    15,     0,     0,     0,     0,     0,     0,    83,     0,
-      62,    77,     0,     0,    82,    87,    89,   117,     0,    15,
-       0,     0,     0,    15,     0,     0,     0,    15,     0,     0,
-      90,    91,    92,    93,   105,   121,   115,     0,    38,    42,
-      43,    45,     0,     0,     0,    44,     0,    41,     0,     0,
-     115,     0,    65,    78,     0,     0,    98,    12,    16,     0,
-       0,     0,     0,    99,     0,   108,     0,    50,     0,     0,
-       0,     8,   103,   104,   106,   107,   109,   110,   111,   112,
-     113,     0,     0,     0,     0,     0,     0,     0,     0,     0,
-       0,    85,     0,     0,     0,    46,    50,     0,     0,    62,
-      86,   117,    63,     0,    65,     0,     0,    74,    73,    75,
-      79,     0,    17,     0,     0,     0,    19,     0,     0,    52,
-       0,    51,    13,    15,    17,     0,    28,    29,    30,    31,
-      32,    33,    34,    35,    94,    37,     0,     0,     0,    49,
-       0,     9,     0,    65,    60,    66,     0,     0,     0,    80,
-       0,     0,     0,     0,     0,     0,   100,     0,   101,    21,
-       0,     0,     0,     0,    36,    54,     0,    48,    40,     0,
-       0,    64,     0,    72,     0,     0,    17,    20,    23,    25,
-       0,    53,    26,    14,     0,    56,     0,    55,    47,    10,
-      61,    68,    81,     0,    15,    18,    88,     0,     0,     0,
-       0,    39,     0,     0,     0,     0,    24,    22,     0,    57,
-       0,    70,     0,    11,     7,    62,    69,     0,     0,    15,
-       0,     0,     0,    75,    70,     0,    84,     0,    71,     0,
-       0,     0,     0,     0,    67,     0,     0,     0,    27
+       4,     0,     0,     0,     0,     0,     0,     0,     0,     0,
+       0,     4,     7,     6,    16,     0,     0,     0,     0,     0,
+       0,     0,     0,     1,    78,    60,     0,     5,    97,     0,
+       0,     0,     0,     0,     0,     0,     0,     2,    60,     0,
+     116,     0,    19,     0,    98,     0,     0,     0,     0,     0,
+       0,     0,    61,     0,    99,     0,   104,     0,    20,     0,
+       0,     0,     0,     0,     0,    85,     0,    64,    79,     0,
+       0,    84,    89,    91,   116,     0,     0,    20,     0,     0,
+       0,    20,     0,    20,     0,     0,    92,    93,    94,    95,
+     107,   117,     0,     0,    40,    44,    45,    47,     0,     0,
+       0,    46,    43,     0,     0,     0,    67,    80,     0,     0,
+      52,   100,     9,    21,     0,     0,     0,     0,   110,   101,
+       0,     0,     0,     0,     0,    52,    13,   105,   106,   108,
+     109,   111,   112,   113,   114,   115,     0,     0,     0,     0,
+       0,     0,     0,     0,     0,     0,    87,     0,     0,     0,
+      48,     0,     0,    64,    88,    65,     0,    67,     0,     0,
+      76,    75,    77,    81,     0,    17,    54,     0,    53,     0,
+       0,     0,    22,     0,     0,    10,    20,    17,     0,     0,
+      30,    31,    32,    33,    34,    35,    36,    37,    96,    39,
+       0,     0,     0,    51,    14,     0,    67,    62,    68,     0,
+       0,     0,    82,     0,     0,     0,     0,     0,     0,     0,
+       0,   102,     0,   103,    24,     0,     0,    42,    38,    56,
+       0,    50,     0,     0,    66,     0,    74,     0,     0,    17,
+      55,    29,    23,    26,    28,     0,    11,     0,    58,     0,
+      57,    49,    15,    63,    70,    83,     0,    20,    18,    90,
+       0,     0,     0,     0,    41,     0,     0,     0,     0,    27,
+      25,     0,    59,     0,    72,     0,     8,    12,    64,    71,
+       0,     0,    20,     0,     0,     0,    77,    72,     0,    86,
+       0,    73,     0,     0,     0,     0,     0,    69,     0,     0,
+       0,     3
 };
 
 /* YYPGOTO[NTERM-NUM].  */
 static const yytype_int16 yypgoto[] =
 {
-    -177,  -177,   128,  -177,  -177,  -177,   -55,  -168,  -155,  -177,
-      -9,   178,   -12,   -84,  -177,  -119,   108,  -177,  -148,  -177,
-    -146,  -177,  -177,  -128,  -151,   135,    99,  -177,  -177,  -177,
-    -177,  -127,  -177,  -177,    65,  -177,  -177,  -177,  -177,  -177,
-    -177,  -177,  -177,  -177,   -15,   -25,   -23,   -58,   -94,  -139,
-    -176,   -35,  -177,  -177,  -177,  -177,  -177,   -52,  -177,  -177,
-    -177,  -177,  -177,   130,   -28,  -177,   -85,    16,   146,   159,
-    -177
+    -177,  -177,  -177,   123,  -177,  -177,  -177,    -1,  -141,    79,
+     -57,  -176,    64,   226,     7,   -71,  -177,  -116,   100,  -177,
+    -126,  -177,  -127,  -177,  -177,  -133,  -124,   137,    93,  -177,
+    -177,  -177,  -177,  -122,  -177,  -177,    59,  -177,  -177,  -177,
+    -177,  -177,  -177,  -177,  -177,  -177,    -7,   -18,   -22,    33,
+     -55,  -150,  -161,   -26,  -177,  -177,  -177,  -177,  -177,   -58,
+    -177,  -177,  -177,  -177,  -177,    23,  -177
 };
 
 /* YYDEFGOTO[NTERM-NUM].  */
 static const yytype_int16 yydefgoto[] =
 {
-       0,     9,    10,    11,    12,    13,    78,   211,    79,    26,
-     179,    98,   180,   181,   246,   247,    38,    39,   112,   162,
-     163,   164,   262,   276,   165,    40,   166,   114,   171,   210,
-     253,    80,    69,   287,   167,   168,    81,   257,    82,    99,
-     100,   101,   102,   195,   103,    46,    83,   117,   124,   217,
-     219,   212,   142,   143,   104,   144,   145,   126,   146,   147,
-     148,   149,   150,    42,   105,    84,    85,    44,   106,    86,
-     107
+       0,     9,    25,    10,    11,    12,    13,    92,   204,    43,
+      76,    77,   166,    94,   167,   168,   239,   240,    37,    38,
+     106,   155,   156,   157,   255,   269,   158,    39,   159,   108,
+     164,   203,   246,    78,    66,   280,   160,   161,    79,   250,
+      80,    95,    96,    97,    98,   189,    99,    45,    81,   112,
+     120,   212,   214,   205,   137,   138,   100,   139,   140,   121,
+     141,   142,   143,   144,   145,   101,   102
 };
 
 /* YYTABLE[YYPACT[STATE-NUM]] -- What to do in state STATE-NUM.  If
@@ -1132,78 +944,86 @@ static const yytype_int16 yydefgoto[] =
    number is the opposite.  If YYTABLE_NINF, syntax error.  */
 static const yytype_int16 yytable[] =
 {
-      30,    31,    32,    33,   141,    34,    35,    36,    37,    60,
-      50,   203,    56,    63,    64,   207,   223,    67,   205,    58,
-      14,  -120,    62,    61,   118,  -116,    66,   169,   122,    19,
-     231,    24,   128,    70,    29,    65,    25,   237,   115,    87,
-     151,   111,    41,    45,    43,   242,   224,    54,    47,    48,
-      49,   108,    51,    52,   130,    57,    97,   230,   197,   238,
-     239,   194,    59,   129,   176,   119,   120,   121,   255,   233,
-     182,   127,   131,   208,   153,  -115,    73,    71,   110,    88,
-      89,   169,   267,   109,   158,   151,   160,   248,   159,    68,
-     110,   156,   151,   160,   154,   155,    71,   110,   113,   157,
-     263,   116,   266,   123,   125,   204,   183,  -119,   170,   216,
-     173,   174,   175,   209,   292,   177,   220,   178,   169,   296,
-     252,   218,   196,   161,   256,   272,   280,   279,   222,   199,
-     161,   172,   201,   286,    74,    74,   241,   206,   198,    28,
-      75,   269,    76,   202,   200,    27,   184,    53,   213,   214,
-     215,    20,    21,    22,    23,   221,   288,    72,   289,   264,
-      15,    16,    17,    18,   243,   240,   169,   152,     0,    57,
-      55,     0,   250,   227,     0,   228,    77,     0,     0,   232,
-       0,   225,    90,    91,    92,    93,   235,     0,   226,     0,
-       0,     0,   169,   229,   283,   234,     0,    94,   244,   265,
-       0,     0,     0,     0,   249,     0,    29,   273,     0,     0,
-     260,     0,   254,     0,    95,    96,   245,   251,     0,     0,
-       0,   261,     0,     0,   282,     0,     0,     0,   236,   259,
-       0,   258,     0,     0,   294,   271,   277,   270,   297,   298,
-       0,     0,     0,   274,   278,     0,     0,   275,     0,   277,
-     268,   245,   284,   281,     0,     0,    74,     0,   285,   151,
-     160,    75,     0,    76,     0,     0,     0,     0,   295,    90,
-      91,    92,    93,     0,   291,     0,     0,     0,   290,     0,
-       0,     0,   293,     0,    94,     0,     0,     0,     0,     0,
-      57,     0,     0,    29,     0,     0,     0,    77,     0,     0,
-       0,    95,   110,   132,   133,     0,   134,   135,     0,   136,
-     137,   138,   139,   140,     0,     0,     0,     0,   123,   185,
-     186,   187,   188,   189,   190,   191,   192,   193,     1,     2,
-       3,     4,     5,     6,     7,     8
+      15,    16,    17,    18,    19,    20,    21,    22,    29,    30,
+      31,    32,    33,    34,    35,    36,    49,    57,    14,    55,
+     113,    60,    61,    58,   117,    64,   122,   196,    59,   218,
+     198,    67,    63,   233,   234,   200,   216,    83,   224,   136,
+     146,   154,    62,    71,   109,    68,   231,   232,    72,    41,
+      73,   226,    23,   146,   154,   146,   103,    75,   188,   124,
+      24,    65,    53,    28,    40,    42,   123,    44,   110,   223,
+     241,   114,   115,   116,   259,   126,    75,    54,    40,    54,
+      75,    82,    75,   153,    74,   125,   152,    40,   248,   105,
+     260,    40,   191,    40,    54,    56,    68,   -16,   118,   107,
+      82,   176,   111,   163,    82,   201,    82,   265,   119,   202,
+      46,    47,    48,   119,    50,    51,   211,   206,   213,   215,
+     256,   148,   285,   118,   245,   249,    93,   289,   279,   162,
+      71,   193,   178,   194,    27,   230,    70,   262,    52,    84,
+      85,   192,   272,   104,   281,   195,   273,    26,    69,   207,
+     172,   208,   209,   210,   235,   175,   282,   147,     0,     0,
+     217,     0,     0,   149,   150,     0,    71,   151,   190,   146,
+     154,    72,     0,    73,   221,    75,     0,     0,   169,   170,
+     171,   199,   162,   219,   173,   174,   228,     0,   165,   197,
+     258,   257,     0,     0,     0,     0,   227,     0,   237,    82,
+      54,     0,     0,   177,   242,     0,   247,    74,    75,    75,
+       0,     0,   253,     0,     0,   275,     0,     0,   244,   162,
+       0,   254,     0,   225,     0,     0,     0,     0,     0,     0,
+     252,     0,    82,    82,     0,     0,     0,   263,   270,     0,
+       0,   268,     0,   267,     0,     0,    75,     0,   236,    75,
+       0,   270,   278,   274,     0,   220,   243,     0,     0,   222,
+       0,     0,     0,     0,     0,     0,     0,   162,   288,     0,
+      82,    75,     0,    82,     0,   284,     0,     0,     0,   264,
+       0,     0,     0,   238,   229,     0,     0,     0,   271,     0,
+       0,   266,     0,   162,     0,   276,   277,     0,     0,   251,
+      86,    87,    88,    89,    86,    87,    88,    89,     0,     0,
+       0,     0,     0,     0,     0,    90,   261,   238,   287,    90,
+       0,     0,   290,   291,    28,     0,     0,     0,    28,     0,
+       0,     0,    91,    74,     0,     0,    91,    40,     0,     0,
+       0,     0,     0,     0,   283,     0,   127,   128,   286,   129,
+     130,     0,   131,   132,   133,   134,   135,     0,     0,     0,
+       0,   119,   179,   180,   181,   182,   183,   184,   185,   186,
+     187,     1,     2,     3,     4,     5,     6,     7,     8
 };
 
 static const yytype_int16 yycheck[] =
 {
-      15,    16,    17,    18,    98,    20,    21,    22,    23,    44,
-      35,   159,    40,    48,    49,   166,   184,    52,   164,    42,
-      50,    41,    47,    46,    79,    45,    51,   112,    83,    50,
-     206,     0,    87,    56,    41,    50,     3,   213,    73,    62,
-      12,    69,    50,    42,    50,   221,   185,    50,    32,    33,
-      34,    66,    36,    37,    89,    43,    65,   203,   152,   214,
-     215,    21,    48,    88,   122,    80,    81,    82,   236,   208,
-     128,    86,    97,   167,   102,    43,    60,     4,    50,    63,
-      64,   166,   258,    67,   109,    12,    13,   226,   111,    10,
-      50,   106,    12,    13,   103,   104,     4,    50,     5,   108,
-     251,    44,   257,    45,    35,   163,   129,    41,     6,    46,
-     119,   120,   121,     7,   290,   124,    48,   126,   203,   295,
-       8,    47,   150,    50,    15,   264,   277,   275,   183,   154,
-      50,   115,   157,    11,     9,     9,   220,   165,   153,    11,
-      14,   260,    16,   158,   156,    10,   130,    39,   173,   174,
-     175,     5,     6,     7,     8,   180,   284,    58,   285,   253,
-       1,     2,     3,     4,   222,   217,   251,   102,    -1,    43,
-      40,    -1,   230,   198,    -1,   200,    50,    -1,    -1,   207,
-      -1,   196,    17,    18,    19,    20,   211,    -1,   197,    -1,
-      -1,    -1,   277,   202,   279,   210,    -1,    32,   223,   254,
-      -1,    -1,    -1,    -1,   229,    -1,    41,   265,    -1,    -1,
-     245,    -1,   235,    -1,    49,    50,   225,   232,    -1,    -1,
-      -1,   246,    -1,    -1,   279,    -1,    -1,    -1,   212,   244,
-      -1,   240,    -1,    -1,   292,   263,   271,   262,   296,   297,
-      -1,    -1,    -1,   268,   272,    -1,    -1,   270,    -1,   284,
-     259,   260,   280,   278,    -1,    -1,     9,    -1,   281,    12,
-      13,    14,    -1,    16,    -1,    -1,    -1,    -1,   293,    17,
-      18,    19,    20,    -1,   289,    -1,    -1,    -1,   287,    -1,
-      -1,    -1,   291,    -1,    32,    -1,    -1,    -1,    -1,    -1,
-      43,    -1,    -1,    41,    -1,    -1,    -1,    50,    -1,    -1,
-      -1,    49,    50,    30,    31,    -1,    33,    34,    -1,    36,
-      37,    38,    39,    40,    -1,    -1,    -1,    -1,    45,   141,
-     142,   143,   144,   145,   146,   147,   148,   149,    22,    23,
-      24,    25,    26,    27,    28,    29
+       1,     2,     3,     4,     5,     6,     7,     8,    15,    16,
+      17,    18,    19,    20,    21,    22,    34,    43,    50,    41,
+      77,    47,    48,    45,    81,    51,    83,   153,    46,   179,
+     157,    53,    50,   209,   210,   159,   177,    59,   199,    94,
+      12,    13,    49,     9,    70,     4,   207,   208,    14,    26,
+      16,   201,     0,    12,    13,    12,    63,    58,    21,    85,
+       3,    10,    39,    41,    50,    50,    84,    42,    75,   196,
+     220,    78,    79,    80,   250,    93,    77,    43,    50,    43,
+      81,    58,    83,   105,    50,    92,   104,    50,   229,    66,
+     251,    50,   147,    50,    43,    48,     4,    41,    35,     5,
+      77,   123,    44,     6,    81,   160,    83,   257,    45,     7,
+      31,    32,    33,    45,    35,    36,    46,    48,    47,   176,
+     244,    98,   283,    35,     8,    15,    62,   288,    11,   106,
+       9,   149,   125,   151,    11,   206,    57,   253,    38,    60,
+      61,   148,   268,    64,   277,   152,   270,    10,    55,   167,
+     117,   169,   170,   171,   212,   122,   278,    98,    -1,    -1,
+     178,    -1,    -1,    99,   100,    -1,     9,   103,   145,    12,
+      13,    14,    -1,    16,   192,   176,    -1,    -1,   114,   115,
+     116,   158,   159,   190,   120,   121,   204,    -1,   109,   156,
+     247,   246,    -1,    -1,    -1,    -1,   203,    -1,   216,   176,
+      43,    -1,    -1,   124,   222,    -1,   228,    50,   209,   210,
+      -1,    -1,   238,    -1,    -1,   272,    -1,    -1,   225,   196,
+      -1,   239,    -1,   200,    -1,    -1,    -1,    -1,    -1,    -1,
+     237,    -1,   209,   210,    -1,    -1,    -1,   255,   264,    -1,
+      -1,   263,    -1,   261,    -1,    -1,   247,    -1,   215,   250,
+      -1,   277,   274,   271,    -1,   191,   223,    -1,    -1,   195,
+      -1,    -1,    -1,    -1,    -1,    -1,    -1,   244,   286,    -1,
+     247,   272,    -1,   250,    -1,   282,    -1,    -1,    -1,   256,
+      -1,    -1,    -1,   219,   205,    -1,    -1,    -1,   265,    -1,
+      -1,   258,    -1,   270,    -1,   272,   273,    -1,    -1,   235,
+      17,    18,    19,    20,    17,    18,    19,    20,    -1,    -1,
+      -1,    -1,    -1,    -1,    -1,    32,   252,   253,   285,    32,
+      -1,    -1,   289,   290,    41,    -1,    -1,    -1,    41,    -1,
+      -1,    -1,    49,    50,    -1,    -1,    49,    50,    -1,    -1,
+      -1,    -1,    -1,    -1,   280,    -1,    30,    31,   284,    33,
+      34,    -1,    36,    37,    38,    39,    40,    -1,    -1,    -1,
+      -1,    45,   136,   137,   138,   139,   140,   141,   142,   143,
+     144,    22,    23,    24,    25,    26,    27,    28,    29
 };
 
 /* YYSTOS[STATE-NUM] -- The symbol kind of the accessing symbol of
@@ -1211,71 +1031,69 @@ static const yytype_int16 yycheck[] =
 static const yytype_int8 yystos[] =
 {
        0,    22,    23,    24,    25,    26,    27,    28,    29,    52,
-      53,    54,    55,    56,    50,   120,   120,   120,   120,    50,
-     119,   119,   119,   119,     0,     3,    60,    76,    53,    41,
-      95,    95,    95,    95,    95,    95,    95,    95,    67,    68,
-      76,    50,   114,    50,   118,    42,    96,   118,   118,   118,
-      96,   118,   118,    67,    50,   114,   115,    43,    97,    48,
-     102,    97,    96,   102,   102,    95,    96,   102,    10,    83,
-      97,     4,    77,   118,     9,    14,    16,    50,    57,    59,
-      82,    87,    89,    97,   116,   117,   120,    97,   118,   118,
-      17,    18,    19,    20,    32,    49,    50,    61,    62,    90,
-      91,    92,    93,    95,   105,   115,   119,   121,    95,   118,
-      50,   115,    69,     5,    78,   102,    44,    98,    57,    95,
-      95,    95,    57,    45,    99,    35,   108,    95,    57,    96,
-     102,    96,    30,    31,    33,    34,    36,    37,    38,    39,
-      40,    99,   103,   104,   106,   107,   109,   110,   111,   112,
-     113,    12,    85,   115,    61,    61,    95,    61,    96,    97,
-      13,    50,    70,    71,    72,    75,    77,    85,    86,   117,
-       6,    79,   118,    61,    61,    61,    98,    61,    61,    61,
-      63,    64,    98,    97,   118,    62,    62,    62,    62,    62,
-      62,    62,    62,    62,    21,    94,   115,    99,    95,    96,
-      63,    96,    95,    69,    98,    71,   115,    75,    99,     7,
-      80,    58,   102,    96,    96,    96,    46,   100,    47,   101,
-      48,    96,    57,    58,   100,    95,    61,    96,    96,    61,
-      71,   101,   115,   100,    95,    96,   118,   101,    59,    59,
-     108,    64,   101,    98,    96,    61,    65,    66,   100,    96,
-      98,    95,     8,    81,    97,    58,    15,    88,    61,    95,
-     102,    96,    73,    75,    99,    57,    59,   101,    61,    66,
-      96,   115,   100,    98,    96,    97,    74,   102,   115,    69,
-      75,    96,    57,   117,   115,    97,    11,    84,    74,    82,
-      61,    95,   101,    61,    98,    96,   101,    98,    98
+      54,    55,    56,    57,    50,    58,    58,    58,    58,    58,
+      58,    58,    58,     0,     3,    53,    78,    54,    41,    97,
+      97,    97,    97,    97,    97,    97,    97,    69,    70,    78,
+      50,   116,    50,    60,    42,    98,    60,    60,    60,    98,
+      60,    60,    69,   116,    43,    99,    48,   104,    99,    98,
+     104,   104,    97,    98,   104,    10,    85,    99,     4,    79,
+      60,     9,    14,    16,    50,    58,    61,    62,    84,    89,
+      91,    99,   116,    99,    60,    60,    17,    18,    19,    20,
+      32,    49,    58,    63,    64,    92,    93,    94,    95,    97,
+     107,   116,   117,    97,    60,   116,    71,     5,    80,   104,
+      97,    44,   100,    61,    97,    97,    97,    61,    35,    45,
+     101,   110,    61,    98,   104,    97,    98,    30,    31,    33,
+      34,    36,    37,    38,    39,    40,   101,   105,   106,   108,
+     109,   111,   112,   113,   114,   115,    12,    87,   116,    63,
+      63,    63,    98,    99,    13,    72,    73,    74,    77,    79,
+      87,    88,   116,     6,    81,    60,    63,    65,    66,    63,
+      63,    63,   100,    63,    63,   100,    99,    60,    65,    64,
+      64,    64,    64,    64,    64,    64,    64,    64,    21,    96,
+     116,   101,    97,    98,    98,    97,    71,   100,    73,   116,
+      77,   101,     7,    82,    59,   104,    48,    98,    98,    98,
+      98,    46,   102,    47,   103,    61,    59,    98,   102,    97,
+      63,    98,    63,    73,   103,   116,   102,    97,    98,    60,
+      66,   103,   103,    62,    62,   110,   100,    98,    63,    67,
+      68,   102,    98,   100,    97,     8,    83,    99,    59,    15,
+      90,    63,    97,   104,    98,    75,    77,   101,    61,    62,
+     103,    63,    68,    98,   116,   102,   100,    98,    99,    76,
+     104,   116,    71,    77,    98,    61,   116,   116,    99,    11,
+      86,    76,    84,    63,    97,   103,    63,   100,    98,   103,
+     100,   100
 };
 
 /* YYR1[RULE-NUM] -- Symbol kind of the left-hand side of rule RULE-NUM.  */
 static const yytype_int8 yyr1[] =
 {
-       0,    51,    52,    53,    53,    54,    54,    55,    55,    55,
-      55,    56,    56,    56,    56,    57,    57,    58,    58,    59,
-      59,    59,    59,    59,    59,    59,    59,    60,    61,    61,
-      61,    61,    61,    61,    61,    61,    61,    61,    61,    61,
-      61,    62,    62,    62,    62,    62,    62,    62,    62,    62,
-      63,    63,    64,    64,    65,    65,    66,    66,    67,    67,
-      68,    68,    69,    69,    70,    71,    71,    72,    73,    73,
-      74,    74,    75,    75,    75,    75,    76,    77,    78,    79,
+       0,    51,    52,    53,    54,    54,    55,    55,    56,    56,
+      56,    56,    57,    57,    57,    57,    58,    59,    59,    60,
+      61,    61,    62,    62,    62,    62,    62,    62,    62,    62,
+      63,    63,    63,    63,    63,    63,    63,    63,    63,    63,
+      63,    63,    63,    64,    64,    64,    64,    64,    64,    64,
+      64,    64,    65,    65,    66,    66,    67,    67,    68,    68,
+      69,    69,    70,    70,    71,    71,    72,    73,    73,    74,
+      75,    75,    76,    76,    77,    77,    77,    77,    78,    79,
       80,    81,    82,    83,    84,    85,    86,    87,    88,    89,
       90,    91,    92,    93,    94,    95,    96,    97,    98,    99,
      100,   101,   102,   103,   104,   105,   106,   107,   108,   109,
-     110,   111,   112,   113,   114,   115,   116,   117,   118,   119,
-     120,   121
+     110,   111,   112,   113,   114,   115,   116,   117
 };
 
 /* YYR2[RULE-NUM] -- Number of symbols on the right-hand side of rule RULE-NUM.  */
 static const yytype_int8 yyr2[] =
 {
-       0,     2,     3,     0,     2,     1,     1,    13,     7,     8,
-      10,    13,     7,     8,    10,     0,     2,     0,     3,     3,
-       5,     4,     7,     5,     7,     5,     5,    21,     3,     3,
-       3,     3,     3,     3,     3,     3,     4,     3,     1,     6,
-       4,     1,     1,     1,     1,     1,     2,     5,     4,     3,
-       0,     1,     1,     3,     0,     1,     1,     3,     0,     2,
-       6,     8,     0,     2,     3,     0,     2,    13,     0,     3,
-       0,     4,     3,     1,     1,     1,     1,     1,     1,     1,
+       0,     2,     3,    21,     0,     2,     1,     1,    13,     7,
+       8,    10,    13,     7,     8,    10,     1,     0,     3,     1,
+       0,     2,     3,     5,     4,     7,     5,     7,     5,     5,
+       3,     3,     3,     3,     3,     3,     3,     3,     4,     3,
+       1,     6,     4,     1,     1,     1,     1,     1,     2,     5,
+       4,     3,     0,     1,     1,     3,     0,     1,     1,     3,
+       0,     2,     6,     8,     0,     2,     3,     0,     2,    13,
+       0,     3,     0,     4,     3,     1,     1,     1,     1,     1,
        1,     1,     1,     1,     1,     1,     1,     1,     1,     1,
        1,     1,     1,     1,     1,     1,     1,     1,     1,     1,
        1,     1,     1,     1,     1,     1,     1,     1,     1,     1,
-       1,     1,     1,     1,     1,     1,     1,     1,     1,     1,
-       1,     1
+       1,     1,     1,     1,     1,     1,     1,     1
 };
 
 
@@ -1738,870 +1556,642 @@ yyreduce:
   YY_REDUCE_PRINT (yyn);
   switch (yyn)
     {
-  case 7: /* MacDefExp: DEFEXP MacExpIdef Lparen ArgIdef Comma ArgIdef Comma ArgIdef ArgIdefStar Rparen Lparen Expression Rparen  */
-#line 288 "A1.y"
-                        {
-				store--;
-				concatList((yyvsp[-2].list),(yyvsp[-1].list));
-				concatList((yyvsp[-2].list),(yyvsp[0].list));
-				add_macro(&mac_exp_list, (yyvsp[-11].list)->head, (yyvsp[-2].list));
-				empty_list(&arg_list);
-			}
-#line 1751 "A1.tab.c"
+  case 2: /* Goal: MacDefStar MainClass TypeDecStar  */
+#line 101 "A1.y"
+                                       {printNodeList(code);}
+#line 1563 "A1.tab.c"
     break;
 
-  case 8: /* MacDefExp: DEFEXP0 MacExpIdef Lparen Rparen Lparen Expression Rparen  */
-#line 296 "A1.y"
+  case 8: /* MacDefStmt: DEFSTMT MacIdef Lparen ArgIdef Comma ArgIdef Comma ArgIdef ArgIdefStar Rparen Lbrace StatementStar Rbrace  */
+#line 112 "A1.y"
                         {
-				store--;
-				concatList((yyvsp[-2].list),(yyvsp[-1].list));
-				concatList((yyvsp[-2].list),(yyvsp[0].list));
-				add_macro(&mac_exp_list, (yyvsp[-5].list)->head, (yyvsp[-2].list));
-				empty_list(&arg_list);
+				processMacroStmt((yyvsp[-11].list), (yyvsp[-1].list));
 			}
-#line 1763 "A1.tab.c"
+#line 1571 "A1.tab.c"
     break;
 
-  case 9: /* MacDefExp: DEFEXP1 MacExpIdef Lparen ArgIdef Rparen Lparen Expression Rparen  */
-#line 304 "A1.y"
+  case 9: /* MacDefStmt: DEFSTMT0 MacIdef Lparen Rparen Lbrace StatementStar Rbrace  */
+#line 116 "A1.y"
                         {
-				store--;
-				concatList((yyvsp[-2].list),(yyvsp[-1].list));
-				concatList((yyvsp[-2].list),(yyvsp[0].list));
-				add_macro(&mac_exp_list, (yyvsp[-6].list)->head, (yyvsp[-2].list));
-				empty_list(&arg_list);
+				processMacroStmt((yyvsp[-5].list), (yyvsp[-1].list));
 			}
-#line 1775 "A1.tab.c"
+#line 1579 "A1.tab.c"
     break;
 
-  case 10: /* MacDefExp: DEFEXP2 MacExpIdef Lparen ArgIdef Comma ArgIdef Rparen Lparen Expression Rparen  */
-#line 312 "A1.y"
+  case 10: /* MacDefStmt: DEFSTMT1 MacIdef Lparen ArgIdef Rparen Lbrace StatementStar Rbrace  */
+#line 120 "A1.y"
                         {
-				store--;
-				concatList((yyvsp[-2].list),(yyvsp[-1].list));
-				concatList((yyvsp[-2].list),(yyvsp[0].list));
-				add_macro(&mac_exp_list, (yyvsp[-8].list)->head, (yyvsp[-2].list));
-				empty_list(&arg_list);
+				processMacroStmt((yyvsp[-6].list), (yyvsp[-1].list));
 			}
-#line 1787 "A1.tab.c"
+#line 1587 "A1.tab.c"
     break;
 
-  case 11: /* MacDefStmt: DEFSTMT MacStmtIdef Lparen ArgIdef Comma ArgIdef Comma ArgIdef ArgIdefStar Rparen Lbrace StatementStar Rbrace  */
-#line 320 "A1.y"
+  case 11: /* MacDefStmt: DEFSTMT2 MacIdef Lparen ArgIdef Comma ArgIdef Rparen Lbrace StatementStar Rbrace  */
+#line 124 "A1.y"
                         {
-				store--;
-				add_macro(&mac_stmt_list, (yyvsp[-11].list)->head, (yyvsp[-1].list));
-				empty_list(&arg_list);
+				processMacroStmt((yyvsp[-8].list), (yyvsp[-1].list));
 			}
-#line 1797 "A1.tab.c"
+#line 1595 "A1.tab.c"
     break;
 
-  case 12: /* MacDefStmt: DEFSTMT0 MacStmtIdef Lparen Rparen Lbrace StatementStar Rbrace  */
-#line 326 "A1.y"
+  case 12: /* MacDefExp: DEFEXP MacIdef Lparen ArgIdef Comma ArgIdef Comma ArgIdef ArgIdefStar Rparen Lparen Expression Rparen  */
+#line 129 "A1.y"
                         {
-				store--;
-				add_macro(&mac_stmt_list, (yyvsp[-5].list)->head, (yyvsp[-1].list));
-				empty_list(&arg_list);
+				processMacroExp((yyvsp[-11].list), (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
 			}
-#line 1807 "A1.tab.c"
+#line 1603 "A1.tab.c"
     break;
 
-  case 13: /* MacDefStmt: DEFSTMT1 MacStmtIdef Lparen ArgIdef Rparen Lbrace StatementStar Rbrace  */
-#line 332 "A1.y"
+  case 13: /* MacDefExp: DEFEXP0 MacIdef Lparen Rparen Lparen Expression Rparen  */
+#line 133 "A1.y"
                         {
+				processMacroExp((yyvsp[-5].list), (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
+			}
+#line 1611 "A1.tab.c"
+    break;
+
+  case 14: /* MacDefExp: DEFEXP1 MacIdef Lparen ArgIdef Rparen Lparen Expression Rparen  */
+#line 137 "A1.y"
+                        {
+				processMacroExp((yyvsp[-6].list), (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
+			}
+#line 1619 "A1.tab.c"
+    break;
+
+  case 15: /* MacDefExp: DEFEXP2 MacIdef Lparen ArgIdef Comma ArgIdef Rparen Lparen Expression Rparen  */
+#line 141 "A1.y"
+                        {
+				processMacroExp((yyvsp[-8].list), (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
+			}
+#line 1627 "A1.tab.c"
+    break;
+
+  case 16: /* MacIdef: ID  */
+#line 145 "A1.y"
+            { store++; (yyval.list) = newList((yyvsp[0].node)); }
+#line 1633 "A1.tab.c"
+    break;
+
+  case 19: /* ArgIdef: ID  */
+#line 150 "A1.y"
+            { addNode(&arg_list, (yyvsp[0].node)); }
+#line 1639 "A1.tab.c"
+    break;
+
+  case 20: /* StatementStar: %empty  */
+#line 152 "A1.y"
+                      { if(store) (yyval.list) = NULL; }
+#line 1645 "A1.tab.c"
+    break;
+
+  case 21: /* StatementStar: Statement StatementStar  */
+#line 153 "A1.y"
+                                                  { if(store) (yyval.list) = concatList(2, (yyvsp[-1].list), (yyvsp[0].list)); }
+#line 1651 "A1.tab.c"
+    break;
+
+  case 22: /* Statement: Lbrace StatementStar Rbrace  */
+#line 156 "A1.y"
+                        {
+				if(store) (yyval.list) = concatList(3, (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
+			}
+#line 1659 "A1.tab.c"
+    break;
+
+  case 23: /* Statement: Println Lparen Expression Rparen Semicolon  */
+#line 160 "A1.y"
+                        {
+				if(store) (yyval.list) = concatList(5, (yyvsp[-4].list), (yyvsp[-3].list), (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
+			}
+#line 1667 "A1.tab.c"
+    break;
+
+  case 24: /* Statement: Idef Equal Expression Semicolon  */
+#line 164 "A1.y"
+                        {
+				if(store) (yyval.list) = concatList(4, (yyvsp[-3].list), (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
+			}
+#line 1675 "A1.tab.c"
+    break;
+
+  case 25: /* Statement: Idef Lbracket Expression Rbracket Equal Expression Semicolon  */
+#line 168 "A1.y"
+                        {
+				if(store) (yyval.list) = concatList(7, (yyvsp[-6].list), (yyvsp[-5].list), (yyvsp[-4].list), (yyvsp[-3].list), (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
+			}
+#line 1683 "A1.tab.c"
+    break;
+
+  case 26: /* Statement: If Lparen Expression Rparen Statement  */
+#line 172 "A1.y"
+                        {
+				if(store) (yyval.list) = concatList(5, (yyvsp[-4].list), (yyvsp[-3].list), (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
+			}
+#line 1691 "A1.tab.c"
+    break;
+
+  case 27: /* Statement: If Lparen Expression Rparen Statement Else Statement  */
+#line 176 "A1.y"
+                        {
+				if(store) (yyval.list) = concatList(7, (yyvsp[-6].list), (yyvsp[-5].list), (yyvsp[-4].list), (yyvsp[-3].list), (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
+			}
+#line 1699 "A1.tab.c"
+    break;
+
+  case 28: /* Statement: While Lparen Expression Rparen Statement  */
+#line 180 "A1.y"
+                        {
+				if(store) (yyval.list) = concatList(5, (yyvsp[-4].list), (yyvsp[-3].list), (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
+			}
+#line 1707 "A1.tab.c"
+    break;
+
+  case 29: /* Statement: MacIdef Lparen ExpArgs Rparen Semicolon  */
+#line 184 "A1.y"
+                        {
+				(yyval.list) = replaceMacro(&mac_stmt_list, (yyvsp[-4].list)->head, (yyvsp[-2].list));
+				if((yyval.list)==NULL)
+				{
+					yyerror("");
+				}
 				store--;
-				add_macro(&mac_stmt_list, (yyvsp[-6].list)->head, (yyvsp[-1].list));
-				empty_list(&arg_list);
+				if(!store) code = concatList(2, code, (yyval.list));
+			}
+#line 1721 "A1.tab.c"
+    break;
+
+  case 30: /* Expression: PrmExp And PrmExp  */
+#line 195 "A1.y"
+                        {
+				if(store) (yyval.list) = concatList(3, (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
+			}
+#line 1729 "A1.tab.c"
+    break;
+
+  case 31: /* Expression: PrmExp Or PrmExp  */
+#line 199 "A1.y"
+                        {
+				if(store) (yyval.list) = concatList(3, (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
+			}
+#line 1737 "A1.tab.c"
+    break;
+
+  case 32: /* Expression: PrmExp Noteq PrmExp  */
+#line 203 "A1.y"
+                        {
+				if(store) (yyval.list) = concatList(3, (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
+			}
+#line 1745 "A1.tab.c"
+    break;
+
+  case 33: /* Expression: PrmExp Lesseq PrmExp  */
+#line 207 "A1.y"
+                        {
+				if(store) (yyval.list) = concatList(3, (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
+			}
+#line 1753 "A1.tab.c"
+    break;
+
+  case 34: /* Expression: PrmExp Add PrmExp  */
+#line 211 "A1.y"
+                        {
+				if(store) (yyval.list) = concatList(3, (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
+			}
+#line 1761 "A1.tab.c"
+    break;
+
+  case 35: /* Expression: PrmExp Sub PrmExp  */
+#line 215 "A1.y"
+                        {
+				if(store) (yyval.list) = concatList(3, (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
+			}
+#line 1769 "A1.tab.c"
+    break;
+
+  case 36: /* Expression: PrmExp Mul PrmExp  */
+#line 219 "A1.y"
+                        {
+				if(store) (yyval.list) = concatList(3, (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
+			}
+#line 1777 "A1.tab.c"
+    break;
+
+  case 37: /* Expression: PrmExp Div PrmExp  */
+#line 223 "A1.y"
+                        {
+				if(store) (yyval.list) = concatList(3, (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
+			}
+#line 1785 "A1.tab.c"
+    break;
+
+  case 38: /* Expression: PrmExp Lbracket PrmExp Rbracket  */
+#line 227 "A1.y"
+                        {
+				if(store) (yyval.list) = concatList(4, (yyvsp[-3].list), (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
+			}
+#line 1793 "A1.tab.c"
+    break;
+
+  case 39: /* Expression: PrmExp Dot Length  */
+#line 231 "A1.y"
+                        {
+				if(store) (yyval.list) = concatList(3, (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
+			}
+#line 1801 "A1.tab.c"
+    break;
+
+  case 40: /* Expression: PrmExp  */
+#line 235 "A1.y"
+                        {
+				if(store) (yyval.list) = (yyvsp[0].list);
+			}
+#line 1809 "A1.tab.c"
+    break;
+
+  case 41: /* Expression: PrmExp Dot Idef Lparen CallArgs Rparen  */
+#line 239 "A1.y"
+                        {
+				if(store) (yyval.list) = concatList(6, (yyvsp[-5].list), (yyvsp[-4].list), (yyvsp[-3].list), (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
 			}
 #line 1817 "A1.tab.c"
     break;
 
-  case 14: /* MacDefStmt: DEFSTMT2 MacStmtIdef Lparen ArgIdef Comma ArgIdef Rparen Lbrace StatementStar Rbrace  */
-#line 338 "A1.y"
+  case 42: /* Expression: MacIdef Lparen ExpArgs Rparen  */
+#line 243 "A1.y"
                         {
-				store--;
-				add_macro(&mac_stmt_list, (yyvsp[-8].list)->head, (yyvsp[-1].list));
-				empty_list(&arg_list);
-			}
-#line 1827 "A1.tab.c"
-    break;
-
-  case 15: /* StatementStar: %empty  */
-#line 343 "A1.y"
-                      { if(store)(yyval.list) = NULL; }
-#line 1833 "A1.tab.c"
-    break;
-
-  case 16: /* StatementStar: Statement StatementStar  */
-#line 344 "A1.y"
-                                                  { if(store) { (yyval.list) = (yyvsp[-1].list); concatList((yyval.list), (yyvsp[0].list)); } }
-#line 1839 "A1.tab.c"
-    break;
-
-  case 19: /* Statement: Lbrace StatementStar Rbrace  */
-#line 348 "A1.y"
-                        {
-				if(store)
-				{
-					(yyval.list) = (yyvsp[-2].list);
-					concatList((yyval.list), (yyvsp[-1].list));
-					concatList((yyval.list), (yyvsp[0].list));
-				}
-			}
-#line 1852 "A1.tab.c"
-    break;
-
-  case 20: /* Statement: Println Lparen Expression Rparen Semicolon  */
-#line 357 "A1.y"
-                        {
-				if(store)
-				{
-					(yyval.list) = (yyvsp[-4].list);
-					concatList((yyval.list), (yyvsp[-3].list));
-					concatList((yyval.list), (yyvsp[-2].list));
-					concatList((yyval.list), (yyvsp[-1].list));
-					concatList((yyval.list), (yyvsp[0].list));
-				}
-			}
-#line 1867 "A1.tab.c"
-    break;
-
-  case 21: /* Statement: IndentSpaceIdef Equal Expression Semicolon  */
-#line 368 "A1.y"
-                        {
-				if(store)
-				{
-					(yyval.list) = (yyvsp[-3].list);
-					concatList((yyval.list), (yyvsp[-2].list));
-					concatList((yyval.list), (yyvsp[-1].list));
-					concatList((yyval.list), (yyvsp[0].list));
-				}
-			}
-#line 1881 "A1.tab.c"
-    break;
-
-  case 22: /* Statement: IndentIdef Lbracket Expression Rbracket Equal Expression Semicolon  */
-#line 378 "A1.y"
-                        {
-				if(store)
-				{
-					(yyval.list) = (yyvsp[-6].list);
-					concatList((yyval.list), (yyvsp[-5].list));
-					concatList((yyval.list), (yyvsp[-4].list));
-					concatList((yyval.list), (yyvsp[-3].list));
-					concatList((yyval.list), (yyvsp[-2].list));
-					concatList((yyval.list), (yyvsp[-1].list));
-					concatList((yyval.list), (yyvsp[0].list));
-				}
-			}
-#line 1898 "A1.tab.c"
-    break;
-
-  case 23: /* Statement: If Lparen Expression Rparen Statement  */
-#line 391 "A1.y"
-                        {
-				if(store)
-				{
-					(yyval.list) = (yyvsp[-4].list);
-					concatList((yyval.list), (yyvsp[-3].list));
-					concatList((yyval.list), (yyvsp[-2].list));
-					concatList((yyval.list), (yyvsp[-1].list));
-					concatList((yyval.list), (yyvsp[0].list));
-				}
-			}
-#line 1913 "A1.tab.c"
-    break;
-
-  case 24: /* Statement: If Lparen Expression Rparen Statement Else Statement  */
-#line 402 "A1.y"
-                        {
-				if(store)
-				{
-					(yyval.list) = (yyvsp[-6].list);
-					concatList((yyval.list), (yyvsp[-5].list));
-					concatList((yyval.list), (yyvsp[-4].list));
-					concatList((yyval.list), (yyvsp[-3].list));
-					concatList((yyval.list), (yyvsp[-2].list));
-					concatList((yyval.list), (yyvsp[-1].list));
-					concatList((yyval.list), (yyvsp[0].list));
-				}
-			}
-#line 1930 "A1.tab.c"
-    break;
-
-  case 25: /* Statement: While Lparen Expression Rparen Statement  */
-#line 415 "A1.y"
-                        {
-				if(store)
-				{
-					(yyval.list) = (yyvsp[-4].list);
-					concatList((yyval.list), (yyvsp[-3].list));
-					concatList((yyval.list), (yyvsp[-2].list));
-					concatList((yyval.list), (yyvsp[-1].list));
-					concatList((yyval.list), (yyvsp[0].list));
-				}
-			}
-#line 1945 "A1.tab.c"
-    break;
-
-  case 26: /* Statement: MacStmtIdef Lparen ExpArgs Rparen Semicolon  */
-#line 426 "A1.y"
-                        {
-				(yyval.list) = replace_macro(&mac_stmt_list, (yyvsp[-4].list)->head, (yyvsp[-2].list));
+				(yyval.list) = replaceMacro(&mac_exp_list, (yyvsp[-3].list)->head, (yyvsp[-1].list));
 				if((yyval.list)==NULL)
 				{
-					printf("\n\nError: Macro not found\n");
-					exit(1);
+					yyerror("");
 				}
 				store--;
-				if(!store) printNodeList((yyval.list));
+				if(!store) code = concatList(2, code, (yyval.list));
 			}
-#line 1960 "A1.tab.c"
+#line 1831 "A1.tab.c"
     break;
 
-  case 28: /* Expression: PrmExp And PrmExp  */
-#line 439 "A1.y"
-                        {
-				if(store)
-				{
-					(yyval.list) = (yyvsp[-2].list);
-					concatList((yyval.list), (yyvsp[-1].list));
-					concatList((yyval.list), (yyvsp[0].list));
-				}
-			}
-#line 1973 "A1.tab.c"
+  case 43: /* PrmExp: Integer  */
+#line 253 "A1.y"
+                {if(store) (yyval.list) = (yyvsp[0].list);}
+#line 1837 "A1.tab.c"
     break;
 
-  case 29: /* Expression: PrmExp Or PrmExp  */
-#line 448 "A1.y"
-                        {
-				if(store) {
-				(yyval.list) = (yyvsp[-2].list);
-				concatList((yyval.list), (yyvsp[-1].list));
-				concatList((yyval.list), (yyvsp[0].list));}
-			}
-#line 1984 "A1.tab.c"
+  case 44: /* PrmExp: True  */
+#line 254 "A1.y"
+                       {if(store) (yyval.list) = (yyvsp[0].list);}
+#line 1843 "A1.tab.c"
     break;
 
-  case 30: /* Expression: PrmExp Noteq PrmExp  */
-#line 455 "A1.y"
-                        {
-				if(store) {
-				(yyval.list) = (yyvsp[-2].list);
-				concatList((yyval.list), (yyvsp[-1].list));
-				concatList((yyval.list), (yyvsp[0].list));}
-			}
-#line 1995 "A1.tab.c"
+  case 45: /* PrmExp: False  */
+#line 255 "A1.y"
+                        {if(store) (yyval.list) = (yyvsp[0].list);}
+#line 1849 "A1.tab.c"
     break;
 
-  case 31: /* Expression: PrmExp Lesseq PrmExp  */
-#line 462 "A1.y"
-                        {
-				if(store) {
-				(yyval.list) = (yyvsp[-2].list);
-				concatList((yyval.list), (yyvsp[-1].list));
-				concatList((yyval.list), (yyvsp[0].list));}
-			}
-#line 2006 "A1.tab.c"
+  case 46: /* PrmExp: Idef  */
+#line 256 "A1.y"
+                        {if(store) (yyval.list) = (yyvsp[0].list);}
+#line 1855 "A1.tab.c"
     break;
 
-  case 32: /* Expression: PrmExp Add PrmExp  */
-#line 469 "A1.y"
-                        {
-				if(store) {
-				(yyval.list) = (yyvsp[-2].list);
-				concatList((yyval.list), (yyvsp[-1].list));
-				concatList((yyval.list), (yyvsp[0].list));}
-			}
-#line 2017 "A1.tab.c"
+  case 47: /* PrmExp: This  */
+#line 257 "A1.y"
+                        {if(store) (yyval.list) = (yyvsp[0].list);}
+#line 1861 "A1.tab.c"
     break;
 
-  case 33: /* Expression: PrmExp Sub PrmExp  */
-#line 476 "A1.y"
-                        {
-				if(store) {
-				(yyval.list) = (yyvsp[-2].list);
-				concatList((yyval.list), (yyvsp[-1].list));
-				concatList((yyval.list), (yyvsp[0].list));}
-			}
-#line 2028 "A1.tab.c"
+  case 48: /* PrmExp: Not Expression  */
+#line 259 "A1.y"
+                {
+			if(store) (yyval.list) = concatList(2, (yyvsp[-1].list), (yyvsp[0].list));
+		}
+#line 1869 "A1.tab.c"
     break;
 
-  case 34: /* Expression: PrmExp Mul PrmExp  */
-#line 483 "A1.y"
-                        {
-				if(store) {
-				(yyval.list) = (yyvsp[-2].list);
-				concatList((yyval.list), (yyvsp[-1].list));
-				concatList((yyval.list), (yyvsp[0].list));}
-			}
-#line 2039 "A1.tab.c"
+  case 49: /* PrmExp: New Int Lbracket Expression Rbracket  */
+#line 263 "A1.y"
+                {
+			if(store) (yyval.list) = concatList(5, (yyvsp[-4].list), (yyvsp[-3].list), (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
+		}
+#line 1877 "A1.tab.c"
     break;
 
-  case 35: /* Expression: PrmExp Div PrmExp  */
-#line 490 "A1.y"
-                        {
-				if(store) {
-				(yyval.list) = (yyvsp[-2].list);
-				concatList((yyval.list), (yyvsp[-1].list));
-				concatList((yyval.list), (yyvsp[0].list));}
-			}
-#line 2050 "A1.tab.c"
+  case 50: /* PrmExp: New Idef Lparen Rparen  */
+#line 267 "A1.y"
+                {
+			if(store) (yyval.list) = concatList(4, (yyvsp[-3].list), (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
+		}
+#line 1885 "A1.tab.c"
     break;
 
-  case 36: /* Expression: PrmExp Lbracket PrmExp Rbracket  */
-#line 497 "A1.y"
-                        {
-				if(store) {
-				(yyval.list) = (yyvsp[-3].list);
-				concatList((yyval.list), (yyvsp[-2].list));
-				concatList((yyval.list), (yyvsp[-1].list));
-				concatList((yyval.list), (yyvsp[0].list));}
-			}
-#line 2062 "A1.tab.c"
+  case 51: /* PrmExp: Lparen Expression Rparen  */
+#line 271 "A1.y"
+                {
+			if(store) (yyval.list) = concatList(3, (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
+		}
+#line 1893 "A1.tab.c"
     break;
 
-  case 37: /* Expression: PrmExp Dot Length  */
-#line 505 "A1.y"
-                        {
-				if(store) {
-				(yyval.list) = (yyvsp[-2].list);
-				concatList((yyval.list), (yyvsp[-1].list));
-				concatList((yyval.list), (yyvsp[0].list));}
-			}
-#line 2073 "A1.tab.c"
-    break;
-
-  case 38: /* Expression: PrmExp  */
-#line 512 "A1.y"
-                        {
-				if(store) {
-				(yyval.list) = (yyvsp[0].list);}
-			}
-#line 2082 "A1.tab.c"
-    break;
-
-  case 39: /* Expression: PrmExp Dot Idef Lparen CallArgs Rparen  */
-#line 517 "A1.y"
-                        {
-				if(store) {
-				(yyval.list) = (yyvsp[-5].list);
-				concatList((yyval.list), (yyvsp[-4].list));
-				concatList((yyval.list), (yyvsp[-3].list));
-				concatList((yyval.list), (yyvsp[-2].list));
-				concatList((yyval.list), (yyvsp[-1].list));
-				concatList((yyval.list), (yyvsp[0].list));}
-			}
-#line 2096 "A1.tab.c"
-    break;
-
-  case 40: /* Expression: MacExpIdef Lparen ExpArgs Rparen  */
-#line 527 "A1.y"
-                        {
-				(yyval.list) = replace_macro(&mac_exp_list, (yyvsp[-3].list)->head, (yyvsp[-1].list));
-				if((yyval.list)==NULL)
-				{
-					printf("\n\nError: Macro not found\n");
-					exit(1);
-				}
-				store--;
-				if(!store) printNodeList((yyval.list));
-			}
-#line 2111 "A1.tab.c"
-    break;
-
-  case 41: /* PrmExp: Integer  */
-#line 537 "A1.y"
-                {if(store)  (yyval.list) = (yyvsp[0].list);}
-#line 2117 "A1.tab.c"
-    break;
-
-  case 42: /* PrmExp: True  */
-#line 538 "A1.y"
-                               {if(store)  (yyval.list) = (yyvsp[0].list);}
-#line 2123 "A1.tab.c"
-    break;
-
-  case 43: /* PrmExp: False  */
-#line 539 "A1.y"
-                                {if(store)  (yyval.list) = (yyvsp[0].list);}
-#line 2129 "A1.tab.c"
-    break;
-
-  case 44: /* PrmExp: Idef  */
-#line 540 "A1.y"
-                                {if(store)  (yyval.list) = (yyvsp[0].list);}
-#line 2135 "A1.tab.c"
-    break;
-
-  case 45: /* PrmExp: This  */
-#line 541 "A1.y"
-                                {if(store)  (yyval.list) = (yyvsp[0].list);}
-#line 2141 "A1.tab.c"
-    break;
-
-  case 46: /* PrmExp: Not Expression  */
-#line 543 "A1.y"
-                        {
-				if(store) 
-				{
-				(yyval.list) = (yyvsp[-1].list);
-				concatList((yyval.list), (yyvsp[0].list));
-				}
-			}
-#line 2153 "A1.tab.c"
-    break;
-
-  case 47: /* PrmExp: New Int Lbracket Expression Rbracket  */
-#line 551 "A1.y"
-                        {
-				if(store) {
-				(yyval.list) = (yyvsp[-4].list);
-				concatList((yyval.list), (yyvsp[-3].list));
-				concatList((yyval.list), (yyvsp[-2].list));
-				concatList((yyval.list), (yyvsp[-1].list));
-				concatList((yyval.list), (yyvsp[0].list));}
-			}
-#line 2166 "A1.tab.c"
-    break;
-
-  case 48: /* PrmExp: New Idef Lparen Rparen  */
-#line 560 "A1.y"
-                        {
-				if(store) {
-				(yyval.list) = (yyvsp[-3].list);
-				concatList((yyval.list), (yyvsp[-2].list));
-				concatList((yyval.list), (yyvsp[-1].list));
-				concatList((yyval.list), (yyvsp[0].list));}
-			}
-#line 2178 "A1.tab.c"
-    break;
-
-  case 49: /* PrmExp: Lparen Expression Rparen  */
-#line 568 "A1.y"
-                        {
-				if(store) {
-				(yyval.list) = (yyvsp[-2].list);
-				concatList((yyval.list), (yyvsp[-1].list));
-				concatList((yyval.list), (yyvsp[0].list));}
-			}
-#line 2189 "A1.tab.c"
-    break;
-
-  case 50: /* ExpArgs: %empty  */
-#line 574 "A1.y"
+  case 52: /* ExpArgs: %empty  */
+#line 275 "A1.y"
                 { (yyval.list) = NULL; }
-#line 2195 "A1.tab.c"
+#line 1899 "A1.tab.c"
     break;
 
-  case 51: /* ExpArgs: ExpArgsEnd  */
-#line 575 "A1.y"
+  case 53: /* ExpArgs: ExpArgsEnd  */
+#line 276 "A1.y"
                                      { (yyval.list) = (yyvsp[0].list); }
-#line 2201 "A1.tab.c"
+#line 1905 "A1.tab.c"
     break;
 
-  case 52: /* ExpArgsEnd: Expression  */
-#line 577 "A1.y"
+  case 54: /* ExpArgsEnd: Expression  */
+#line 279 "A1.y"
                         {
 				cNode *temp = malloc(sizeof(cNode));
 				temp->data = (yyvsp[0].list);
 				(yyval.list) = newList(temp);
 			}
-#line 2211 "A1.tab.c"
+#line 1915 "A1.tab.c"
     break;
 
-  case 53: /* ExpArgsEnd: Expression COMMA ExpArgsEnd  */
-#line 583 "A1.y"
+  case 55: /* ExpArgsEnd: Expression COMMA ExpArgsEnd  */
+#line 285 "A1.y"
                         {
 				cNode *temp = malloc(sizeof(cNode));
 				temp->data = (yyvsp[-2].list);
-				(yyval.list) = newList(temp);
-				concatList((yyval.list), (yyvsp[0].list));
+				(yyval.list) = concatList(2, newList(temp), (yyvsp[0].list));
 			}
-#line 2222 "A1.tab.c"
+#line 1925 "A1.tab.c"
     break;
 
-  case 54: /* CallArgs: %empty  */
-#line 589 "A1.y"
+  case 56: /* CallArgs: %empty  */
+#line 291 "A1.y"
                  { if(store) (yyval.list) = NULL; }
-#line 2228 "A1.tab.c"
+#line 1931 "A1.tab.c"
     break;
 
-  case 55: /* CallArgs: CallArgsEnd  */
-#line 590 "A1.y"
+  case 57: /* CallArgs: CallArgsEnd  */
+#line 292 "A1.y"
                                       { if(store) (yyval.list) = (yyvsp[0].list); }
-#line 2234 "A1.tab.c"
+#line 1937 "A1.tab.c"
     break;
 
-  case 56: /* CallArgsEnd: Expression  */
-#line 591 "A1.y"
-                        { if(store) {(yyval.list) = (yyvsp[0].list);} }
-#line 2240 "A1.tab.c"
+  case 58: /* CallArgsEnd: Expression  */
+#line 294 "A1.y"
+                        { if(store) (yyval.list) = (yyvsp[0].list); }
+#line 1943 "A1.tab.c"
     break;
 
-  case 57: /* CallArgsEnd: Expression Comma CallArgsEnd  */
-#line 593 "A1.y"
+  case 59: /* CallArgsEnd: Expression Comma CallArgsEnd  */
+#line 296 "A1.y"
                         {
-				if(store)
-				{
-					(yyval.list) = (yyvsp[-2].list);
-					concatList((yyval.list), (yyvsp[-1].list));
-					concatList((yyval.list), (yyvsp[0].list));
-				}
+				if(store) (yyval.list) = concatList(3, (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
 			}
-#line 2253 "A1.tab.c"
+#line 1951 "A1.tab.c"
     break;
 
-  case 76: /* Class: CLASS  */
-#line 621 "A1.y"
-                        {if(store) (yyval.list)=newList((yyvsp[0].node));
-						else printf("%sclass ", indent); }
-#line 2260 "A1.tab.c"
+  case 78: /* Class: CLASS  */
+#line 319 "A1.y"
+                        {processTerminal((yyval.list), (yyvsp[0].node));}
+#line 1957 "A1.tab.c"
     break;
 
-  case 77: /* Public: PUBLIC  */
-#line 623 "A1.y"
-                        {if(store) (yyval.list)=newList((yyvsp[0].node));
-						else printf("%spublic ", indent);}
-#line 2267 "A1.tab.c"
+  case 79: /* Public: PUBLIC  */
+#line 320 "A1.y"
+                        {processTerminal((yyval.list), (yyvsp[0].node));}
+#line 1963 "A1.tab.c"
     break;
 
-  case 78: /* Static: STATIC  */
-#line 625 "A1.y"
-                        {if(store) (yyval.list)=newList((yyvsp[0].node));
-						else printf("static ");}
-#line 2274 "A1.tab.c"
+  case 80: /* Static: STATIC  */
+#line 321 "A1.y"
+                        {processTerminal((yyval.list), (yyvsp[0].node));}
+#line 1969 "A1.tab.c"
     break;
 
-  case 79: /* Void: VOID  */
-#line 627 "A1.y"
-                                {if(store) (yyval.list)=newList((yyvsp[0].node));
-						else printf("void ");}
-#line 2281 "A1.tab.c"
+  case 81: /* Void: VOID  */
+#line 322 "A1.y"
+                                {processTerminal((yyval.list), (yyvsp[0].node));}
+#line 1975 "A1.tab.c"
     break;
 
-  case 80: /* Main: MAIN  */
-#line 629 "A1.y"
-                                {if(store) (yyval.list)=newList((yyvsp[0].node));
-						else printf("main ");}
-#line 2288 "A1.tab.c"
+  case 82: /* Main: MAIN  */
+#line 323 "A1.y"
+                                {processTerminal((yyval.list), (yyvsp[0].node));}
+#line 1981 "A1.tab.c"
     break;
 
-  case 81: /* String: STRING  */
-#line 631 "A1.y"
-                        {if(store) (yyval.list)=newList((yyvsp[0].node));
-						else printf("String ");}
-#line 2295 "A1.tab.c"
+  case 83: /* String: STRING  */
+#line 324 "A1.y"
+                        {processTerminal((yyval.list), (yyvsp[0].node));}
+#line 1987 "A1.tab.c"
     break;
 
-  case 82: /* Println: PRINTLN  */
-#line 633 "A1.y"
-                        {if(store) (yyval.list)=newList((yyvsp[0].node));
-						else printf("%sSystem.out.println", indent);}
-#line 2302 "A1.tab.c"
+  case 84: /* Println: PRINTLN  */
+#line 325 "A1.y"
+                        {processTerminal((yyval.list), (yyvsp[0].node));}
+#line 1993 "A1.tab.c"
     break;
 
-  case 83: /* Extends: EXTENDS  */
-#line 635 "A1.y"
-                        {if(store) (yyval.list)=newList((yyvsp[0].node));
-						else printf("extends ");}
-#line 2309 "A1.tab.c"
+  case 85: /* Extends: EXTENDS  */
+#line 326 "A1.y"
+                        {processTerminal((yyval.list), (yyvsp[0].node));}
+#line 1999 "A1.tab.c"
     break;
 
-  case 84: /* Return: RETURN  */
-#line 637 "A1.y"
-                        {if(store) (yyval.list)=newList((yyvsp[0].node));
-						else printf("%sreturn ", indent);}
-#line 2316 "A1.tab.c"
+  case 86: /* Return: RETURN  */
+#line 327 "A1.y"
+                        {processTerminal((yyval.list), (yyvsp[0].node));}
+#line 2005 "A1.tab.c"
     break;
 
-  case 85: /* Int: INT  */
-#line 639 "A1.y"
-                                {if(store) (yyval.list)=newList((yyvsp[0].node));
-						else printf("%sint ", indent);}
-#line 2323 "A1.tab.c"
+  case 87: /* Int: INT  */
+#line 328 "A1.y"
+                                {processTerminal((yyval.list), (yyvsp[0].node));}
+#line 2011 "A1.tab.c"
     break;
 
-  case 86: /* Boolean: BOOLEAN  */
-#line 641 "A1.y"
-                        {if(store) (yyval.list)=newList((yyvsp[0].node));
-						else printf("%sboolean ", indent);}
-#line 2330 "A1.tab.c"
+  case 88: /* Boolean: BOOLEAN  */
+#line 329 "A1.y"
+                        {processTerminal((yyval.list), (yyvsp[0].node));}
+#line 2017 "A1.tab.c"
     break;
 
-  case 87: /* If: IF  */
-#line 643 "A1.y"
-                                {if(store) (yyval.list)=newList((yyvsp[0].node));
-						else printf("\n%sif ", indent);}
-#line 2337 "A1.tab.c"
+  case 89: /* If: IF  */
+#line 330 "A1.y"
+                                {processTerminal((yyval.list), (yyvsp[0].node));}
+#line 2023 "A1.tab.c"
     break;
 
-  case 88: /* Else: ELSE  */
-#line 645 "A1.y"
-                        {if(store) (yyval.list)=newList((yyvsp[0].node));
-						else printf("%selse ", indent);}
-#line 2344 "A1.tab.c"
+  case 90: /* Else: ELSE  */
+#line 331 "A1.y"
+                        {processTerminal((yyval.list), (yyvsp[0].node));}
+#line 2029 "A1.tab.c"
     break;
 
-  case 89: /* While: WHILE  */
-#line 647 "A1.y"
-                        {if(store) (yyval.list)=newList((yyvsp[0].node));
-						else printf("%swhile ", indent);}
-#line 2351 "A1.tab.c"
+  case 91: /* While: WHILE  */
+#line 332 "A1.y"
+                        {processTerminal((yyval.list), (yyvsp[0].node));}
+#line 2035 "A1.tab.c"
     break;
 
-  case 90: /* True: TRUE  */
-#line 649 "A1.y"
-                                {if(store) (yyval.list)=newList((yyvsp[0].node));
-						else printf("true ");}
-#line 2358 "A1.tab.c"
+  case 92: /* True: TRUE  */
+#line 333 "A1.y"
+                                {processTerminal((yyval.list), (yyvsp[0].node));}
+#line 2041 "A1.tab.c"
     break;
 
-  case 91: /* False: FALSE  */
-#line 651 "A1.y"
-                        {if(store) (yyval.list)=newList((yyvsp[0].node));
-						else printf("false ");}
-#line 2365 "A1.tab.c"
+  case 93: /* False: FALSE  */
+#line 334 "A1.y"
+                        {processTerminal((yyval.list), (yyvsp[0].node));}
+#line 2047 "A1.tab.c"
     break;
 
-  case 92: /* This: THIS  */
-#line 653 "A1.y"
-                                {if(store) (yyval.list)=newList((yyvsp[0].node));
-						else printf("this");}
-#line 2372 "A1.tab.c"
+  case 94: /* This: THIS  */
+#line 335 "A1.y"
+                                {processTerminal((yyval.list), (yyvsp[0].node));}
+#line 2053 "A1.tab.c"
     break;
 
-  case 93: /* New: NEW  */
-#line 655 "A1.y"
-                                {if(store) (yyval.list)=newList((yyvsp[0].node));
-						else printf("new ");}
-#line 2379 "A1.tab.c"
+  case 95: /* New: NEW  */
+#line 336 "A1.y"
+                                {processTerminal((yyval.list), (yyvsp[0].node));}
+#line 2059 "A1.tab.c"
     break;
 
-  case 94: /* Length: LENGTH  */
-#line 657 "A1.y"
-                        {if(store) (yyval.list)=newList((yyvsp[0].node));
-						else printf("length");}
-#line 2386 "A1.tab.c"
+  case 96: /* Length: LENGTH  */
+#line 337 "A1.y"
+                        {processTerminal((yyval.list), (yyvsp[0].node));}
+#line 2065 "A1.tab.c"
     break;
 
-  case 95: /* Lparen: LPAREN  */
-#line 659 "A1.y"
-                        {if(store) (yyval.list)=newList((yyvsp[0].node));
-						else printf("(");}
-#line 2393 "A1.tab.c"
+  case 97: /* Lparen: LPAREN  */
+#line 338 "A1.y"
+                        {processTerminal((yyval.list), (yyvsp[0].node));}
+#line 2071 "A1.tab.c"
     break;
 
-  case 96: /* Rparen: RPAREN  */
-#line 661 "A1.y"
-                        {if(store) (yyval.list)=newList((yyvsp[0].node));
-						else printf(")");}
-#line 2400 "A1.tab.c"
+  case 98: /* Rparen: RPAREN  */
+#line 339 "A1.y"
+                        {processTerminal((yyval.list), (yyvsp[0].node));}
+#line 2077 "A1.tab.c"
     break;
 
-  case 97: /* Lbrace: LBRACE  */
-#line 663 "A1.y"
-                        {if(store) (yyval.list)=newList((yyvsp[0].node));
-						else {printf("\n%s{\n", indent); strcat(indent,"\t");}}
-#line 2407 "A1.tab.c"
+  case 99: /* Lbrace: LBRACE  */
+#line 340 "A1.y"
+                        {processTerminal((yyval.list), (yyvsp[0].node));}
+#line 2083 "A1.tab.c"
     break;
 
-  case 98: /* Rbrace: RBRACE  */
-#line 665 "A1.y"
-                        {if(store) (yyval.list)=newList((yyvsp[0].node));
-						else {indent[strlen(indent)-1]='\0'; printf("\n%s}\n", indent);}}
-#line 2414 "A1.tab.c"
+  case 100: /* Rbrace: RBRACE  */
+#line 341 "A1.y"
+                        {processTerminal((yyval.list), (yyvsp[0].node));}
+#line 2089 "A1.tab.c"
     break;
 
-  case 99: /* Lbracket: LBRACKET  */
-#line 667 "A1.y"
-                        {if(store) (yyval.list)=newList((yyvsp[0].node));
-						else printf("[");}
-#line 2421 "A1.tab.c"
+  case 101: /* Lbracket: LBRACKET  */
+#line 342 "A1.y"
+                        {processTerminal((yyval.list), (yyvsp[0].node));}
+#line 2095 "A1.tab.c"
     break;
 
-  case 100: /* Rbracket: RBRACKET  */
-#line 669 "A1.y"
-                        {if(store) (yyval.list)=newList((yyvsp[0].node));
-						else printf("] ");}
-#line 2428 "A1.tab.c"
+  case 102: /* Rbracket: RBRACKET  */
+#line 343 "A1.y"
+                        {processTerminal((yyval.list), (yyvsp[0].node));}
+#line 2101 "A1.tab.c"
     break;
 
-  case 101: /* Semicolon: SEMICOLON  */
-#line 671 "A1.y"
-                     {if(store) (yyval.list)=newList((yyvsp[0].node));
-						else printf(";\n");}
-#line 2435 "A1.tab.c"
+  case 103: /* Semicolon: SEMICOLON  */
+#line 344 "A1.y"
+                     {processTerminal((yyval.list), (yyvsp[0].node));}
+#line 2107 "A1.tab.c"
     break;
 
-  case 102: /* Comma: COMMA  */
-#line 673 "A1.y"
-                        {if(store) (yyval.list)=newList((yyvsp[0].node));
-						else printf(",");}
-#line 2442 "A1.tab.c"
+  case 104: /* Comma: COMMA  */
+#line 345 "A1.y"
+                        {processTerminal((yyval.list), (yyvsp[0].node));}
+#line 2113 "A1.tab.c"
     break;
 
-  case 103: /* And: AND  */
-#line 675 "A1.y"
-                                {if(store) (yyval.list)=newList((yyvsp[0].node));
-						else printf("&& ");}
-#line 2449 "A1.tab.c"
+  case 105: /* And: AND  */
+#line 346 "A1.y"
+                                {processTerminal((yyval.list), (yyvsp[0].node));}
+#line 2119 "A1.tab.c"
     break;
 
-  case 104: /* Or: OR  */
-#line 677 "A1.y"
-                                {if(store) (yyval.list)=newList((yyvsp[0].node));
-						else printf("|| ");}
-#line 2456 "A1.tab.c"
+  case 106: /* Or: OR  */
+#line 347 "A1.y"
+                                {processTerminal((yyval.list), (yyvsp[0].node));}
+#line 2125 "A1.tab.c"
     break;
 
-  case 105: /* Not: NOT  */
-#line 679 "A1.y"
-                                {if(store) (yyval.list)=newList((yyvsp[0].node));
-						else printf("!");}
-#line 2463 "A1.tab.c"
+  case 107: /* Not: NOT  */
+#line 348 "A1.y"
+                                {processTerminal((yyval.list), (yyvsp[0].node));}
+#line 2131 "A1.tab.c"
     break;
 
-  case 106: /* Noteq: NOTEQ  */
-#line 681 "A1.y"
-                        {if(store) (yyval.list)=newList((yyvsp[0].node));
-						else printf("!=");}
-#line 2470 "A1.tab.c"
+  case 108: /* Noteq: NOTEQ  */
+#line 349 "A1.y"
+                        {processTerminal((yyval.list), (yyvsp[0].node));}
+#line 2137 "A1.tab.c"
     break;
 
-  case 107: /* Lesseq: LESSEQ  */
-#line 683 "A1.y"
-                        {if(store) (yyval.list)=newList((yyvsp[0].node));
-						else printf("<=");}
-#line 2477 "A1.tab.c"
+  case 109: /* Lesseq: LESSEQ  */
+#line 350 "A1.y"
+                        {processTerminal((yyval.list), (yyvsp[0].node));}
+#line 2143 "A1.tab.c"
     break;
 
-  case 108: /* Equal: EQUAL  */
-#line 685 "A1.y"
-                        {if(store) (yyval.list)=newList((yyvsp[0].node));
-						else printf("=");}
-#line 2484 "A1.tab.c"
+  case 110: /* Equal: EQUAL  */
+#line 351 "A1.y"
+                        {processTerminal((yyval.list), (yyvsp[0].node));}
+#line 2149 "A1.tab.c"
     break;
 
-  case 109: /* Add: ADD  */
-#line 687 "A1.y"
-                                {if(store) (yyval.list)=newList((yyvsp[0].node));
-						else printf("+");}
-#line 2491 "A1.tab.c"
+  case 111: /* Add: ADD  */
+#line 352 "A1.y"
+                                {processTerminal((yyval.list), (yyvsp[0].node));}
+#line 2155 "A1.tab.c"
     break;
 
-  case 110: /* Sub: SUB  */
-#line 689 "A1.y"
-                                {if(store) (yyval.list)=newList((yyvsp[0].node));
-						else printf("-");}
-#line 2498 "A1.tab.c"
+  case 112: /* Sub: SUB  */
+#line 353 "A1.y"
+                                {processTerminal((yyval.list), (yyvsp[0].node));}
+#line 2161 "A1.tab.c"
     break;
 
-  case 111: /* Mul: MUL  */
-#line 691 "A1.y"
-                                {if(store) (yyval.list)=newList((yyvsp[0].node));
-						else printf("*");}
-#line 2505 "A1.tab.c"
+  case 113: /* Mul: MUL  */
+#line 354 "A1.y"
+                                {processTerminal((yyval.list), (yyvsp[0].node));}
+#line 2167 "A1.tab.c"
     break;
 
-  case 112: /* Div: DIV  */
-#line 693 "A1.y"
-                                {if(store) (yyval.list)=newList((yyvsp[0].node));
-						else printf("/");}
-#line 2512 "A1.tab.c"
+  case 114: /* Div: DIV  */
+#line 355 "A1.y"
+                                {processTerminal((yyval.list), (yyvsp[0].node));}
+#line 2173 "A1.tab.c"
     break;
 
-  case 113: /* Dot: DOT  */
-#line 695 "A1.y"
-                                {if(store) (yyval.list)=newList((yyvsp[0].node));
-						else printf(".");}
-#line 2519 "A1.tab.c"
+  case 115: /* Dot: DOT  */
+#line 356 "A1.y"
+                                {processTerminal((yyval.list), (yyvsp[0].node));}
+#line 2179 "A1.tab.c"
     break;
 
-  case 114: /* SpaceIdef: ID  */
-#line 697 "A1.y"
-                        {if(store) (yyval.list)=newList((yyvsp[0].node));
-						else 
-						{
-							Node *n = (Node *)(yyvsp[0].node)->data;
-							printf("%s ", n->id);
-						}}
-#line 2530 "A1.tab.c"
+  case 116: /* Idef: ID  */
+#line 357 "A1.y"
+                                {processTerminal((yyval.list), (yyvsp[0].node));}
+#line 2185 "A1.tab.c"
     break;
 
-  case 115: /* Idef: ID  */
-#line 703 "A1.y"
-                                {if(store) 
-						{
-							(yyval.list)=newList((yyvsp[0].node));
-						}
-						else 
-						{
-							Node *n = (Node *)(yyvsp[0].node)->data;
-							printf("%s", n->id);
-						}}
-#line 2544 "A1.tab.c"
-    break;
-
-  case 116: /* IndentIdef: ID  */
-#line 712 "A1.y"
-                        {if(store) (yyval.list)=newList((yyvsp[0].node));
-						else 
-						{
-							Node *n = (Node *)(yyvsp[0].node)->data;
-							printf("%s%s", indent, n->id);
-						}}
-#line 2555 "A1.tab.c"
-    break;
-
-  case 117: /* IndentSpaceIdef: ID  */
-#line 718 "A1.y"
-                    {if(store) (yyval.list)=newList((yyvsp[0].node));
-						else 
-						{
-							Node *n = (Node *)(yyvsp[0].node)->data;
-							printf("%s%s ", indent, n->id);
-						}}
-#line 2566 "A1.tab.c"
-    break;
-
-  case 118: /* ArgIdef: ID  */
-#line 724 "A1.y"
-                        { addNode(&arg_list, (yyvsp[0].node)); }
-#line 2572 "A1.tab.c"
-    break;
-
-  case 119: /* MacExpIdef: ID  */
-#line 725 "A1.y"
-                        {
-						store++;
-						(yyval.list) = newList((yyvsp[0].node));
-					}
-#line 2581 "A1.tab.c"
-    break;
-
-  case 120: /* MacStmtIdef: ID  */
-#line 729 "A1.y"
-                        {
-						store++;
-						(yyval.list) = newList((yyvsp[0].node));
-					}
-#line 2590 "A1.tab.c"
-    break;
-
-  case 121: /* Integer: INTEGER  */
-#line 733 "A1.y"
-                        {if(store) (yyval.list)=newList((yyvsp[0].node));
-					else 
-					{
-						Node *n = (Node *)(yyvsp[0].node)->data;
-						printf("%s ", n->id);
-					}}
-#line 2601 "A1.tab.c"
+  case 117: /* Integer: INTEGER  */
+#line 358 "A1.y"
+                        {processTerminal((yyval.list), (yyvsp[0].node));}
+#line 2191 "A1.tab.c"
     break;
 
 
-#line 2605 "A1.tab.c"
+#line 2195 "A1.tab.c"
 
       default: break;
     }
@@ -2794,11 +2384,13 @@ yyreturnlab:
   return yyresult;
 }
 
-#line 739 "A1.y"
+#line 359 "A1.y"
 
 
-void yyerror (const char *s) {
-printf ("//Failed to parse input code\n");
+void yyerror (const char *s) 
+{
+	printf ("//Failed to parse input code");
+	exit(1);
 }
 
 int main () 
@@ -2808,3 +2400,212 @@ int main ()
 }
 
 #include "lex.yy.c"
+
+void clearList(cList *clist)
+{
+	clist->head = NULL;
+	clist->tail = NULL;
+	clist->size = 0;
+}
+
+void printNodeList(cList *clist)
+{
+	if(clist==NULL) return;
+	cNode *node = clist->head;
+	while (node != NULL) 
+	{
+		Node *n = (Node *)node->data;
+		printf("%s ", n->id);
+		node = node->next;
+	}
+}
+
+cList *newList(cNode *cnode)
+{
+	if(cnode==NULL) return NULL;
+	
+	cNode *tmp = (cNode *)malloc(sizeof(cNode));
+	tmp->data = cnode->data;
+	tmp->next = NULL;
+
+	cList *clist = (cList *)malloc(sizeof(cList));
+	clist->head = tmp;
+	clist->tail = tmp;
+	clist->size = 1;
+	return clist;
+}
+
+cList *addNode(cList *clist, cNode *cnode)
+{
+	if(clist==NULL) return newList(cnode);
+
+	cNode *tmp = malloc(sizeof(cNode));
+	tmp->data = cnode->data;
+	tmp->next = NULL;
+
+	if(clist->head == NULL) 
+	{
+		clist->head = tmp;
+		clist->tail = tmp;
+		clist->size = 1;
+		return clist;
+	}
+
+	clist->tail->next = tmp;
+	clist->tail = tmp;
+	clist->size++;
+	return clist;
+}
+
+cList *concatList(int num, ...)
+{
+	va_list valist;
+	va_start(valist, num);
+
+	cList *clist = va_arg(valist, cList *);
+	for (int i = 1; i < num; i++) 
+	{
+		cList *l2 = va_arg(valist, cList *);
+		if(clist == NULL) clist = l2;
+		else if(l2 != NULL)
+		{
+			clist->tail->next = l2->head;
+			clist->tail = l2->tail;
+			clist->size += l2->size;
+		}
+	}
+
+	va_end(valist);
+	return clist;
+}
+
+cList *copyList(cList *clist)
+{
+	if(clist==NULL) return NULL;
+
+	cList *cpy = NULL;
+	cNode *tmp = clist->head;
+	while(tmp != NULL)
+	{
+		cpy = addNode(cpy, tmp);
+		tmp = tmp->next;
+	}
+	return cpy;
+}
+
+void *createTempArgs(int len, bool inList)
+{
+	if(inList)
+	{
+		cList *arglist = NULL;
+		for(int i=1; i<=len; i++)
+		{
+			Node *node = malloc(sizeof(node));
+			char buf[10000]="";
+			sprintf(buf, "-%d", i);
+			node->id = strdup(buf);
+
+			cList *list = NULL;
+			cNode *tmp = malloc(sizeof(cNode));
+			tmp->data = node;
+			list = addNode(list, tmp);
+
+			tmp->data = list;
+			arglist = addNode(arglist, tmp);
+		}
+		return arglist;
+	}
+
+	cList *clist = NULL;
+	for(int i=1; i<=len; i++)
+	{
+		Node *node = malloc(sizeof(node));
+		char buf[10000];
+		sprintf(buf, "-%d", i);
+		node->id = strdup(buf);
+
+		cNode *tmp = malloc(sizeof(cNode));
+		tmp->data = node;
+		tmp->next = NULL;
+		clist = addNode(clist, tmp);
+	}
+	return clist;
+}
+
+void renameOneArg(Node *arg, cList *repl_arg, cList/*node*/ *replace)
+{
+	if(replace==NULL) return;
+
+	cNode *tmp = replace->head;
+	cNode *prev = NULL;
+	while(tmp != NULL) 
+	{
+		Node *n = (Node *)tmp->data;
+		if(strcmp(n->id, arg->id) == 0) 
+		{
+			cNode *tmp2 = tmp->next;
+			cList *cpy = copyList(repl_arg);
+
+			if(prev==NULL) replace->head=cpy->head;
+			else prev->next = cpy->head;
+			cpy->tail->next = tmp2;
+			prev = cpy->tail;
+		}
+		else prev = tmp;
+		tmp = tmp->next;
+	}
+}
+
+void replace_args(cList/*node*/ *args, cList/*cList->node*/ *repl_args, cList/*node*/ *replace)
+{
+	if(repl_args==NULL) return;
+
+	cNode *repl_node = repl_args->head;
+	cNode *node = args->head;
+	while(repl_node != NULL)
+	{
+		renameOneArg((Node *)node->data, (cList *)repl_node->data, replace);
+		repl_node = repl_node->next;
+		node = node->next;
+	}
+}
+
+void addMacro(cList/*mac_node*/ *list, cNode/*Node*/ *cnode, cList/*node*/ *replace) 
+{
+	replace_args(&arg_list, createTempArgs(arg_list.size, true), replace);
+	
+	mac_node *node = malloc(sizeof(mac_node));
+	Node *n = (Node *)cnode->data;
+	node->name = n->id;
+	node->replace = replace;
+	node->argc = arg_list.size;
+	node->next = NULL;
+
+	cNode *nnode = malloc(sizeof(cNode));
+	nnode->data = node;
+	list = addNode(list, nnode);
+	free(nnode);
+}
+
+cList *replaceMacro(cList/*mac_node*/ *list, cNode/*Node*/ *cnode, cList/*clist->node*/ *arglist) 
+{
+	cNode *node = list->head;
+	Node *n = (Node *)cnode->data;
+	
+	while (node != NULL) 
+	{	
+		mac_node *mac = (mac_node *)node->data;
+		int sz = 0;
+		if(arglist) sz = arglist->size;
+
+		if (mac->argc == sz && strcmp(mac->name, n->id) == 0) 
+		{
+			cList *upd = copyList(mac->replace);
+			if(arglist!=NULL) replace_args(createTempArgs(arglist->size, false), arglist, upd);
+			found = true;
+			return upd;
+		}
+		node = node->next;
+	}
+	return NULL;
+}
