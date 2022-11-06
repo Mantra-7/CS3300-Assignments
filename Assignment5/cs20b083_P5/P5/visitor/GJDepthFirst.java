@@ -64,13 +64,18 @@ public class GJDepthFirst<R,A> implements GJVisitor<String,String> {
       print("\t\t.data");
       print("\t\t.align 0");
       print("newl:\t.asciiz \"\\n\"");
+      print("\n\t.data");
+      print("\t.align   0");
+      print("str_er:  .asciiz \" ERROR: abnormal termination\\n\" ");
    }
 	
    void move(String reg, String val)
    {
-      if(val.charAt(0) == '$') print("\t\tmove "+reg+", "+val);
-      else if(val.charAt(0)<='9') print("\t\tli "+reg+", "+val);
-      else print("\t\tla "+reg+", "+val);
+      String type = val.substring(0,3);
+      String value = val.substring(3);
+      if(type.equals("reg")) print("\t\tmove "+reg+", "+value);
+      else if(type.equals("int")) print("\t\tli "+reg+", "+value);
+      else print("\t\tla "+reg+", "+value);
    }
 
    public String visit(NodeList n, String argu) {
@@ -211,6 +216,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<String,String> {
     */
    public String visit(NoOpStmt n, String argu) 
    {
+      print("\t\tnop");
       return null;
    }
 
@@ -219,6 +225,10 @@ public class GJDepthFirst<R,A> implements GJVisitor<String,String> {
     */
    public String visit(ErrorStmt n, String argu) 
    {
+      print("\t\tla $a0, str_er");
+      print("\t\tsyscall");
+      print("\t\tli $v0, 10");
+      print("\t\tsyscall");
       return null;
    }
 
@@ -371,7 +381,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<String,String> {
       String size = n.f1.accept(this, null);
       move("$a0",size);
       print("\t\tjal _halloc");
-      return "$v0";
+      return "reg$v0";
    }
 
    /**
@@ -384,7 +394,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<String,String> {
       String rs = argu;
       String op = n.f0.accept(this, null);
       String r1 = n.f1.accept(this, null);
-      String r2 = n.f2.accept(this, null);
+      String r2 = n.f2.accept(this, null).substring(3);
 
       if(op == "LE") op = "sle";
       else if(op == "NE") op = "sne";
@@ -426,7 +436,9 @@ public class GJDepthFirst<R,A> implements GJVisitor<String,String> {
     */
    public String visit(SimpleExp n, String argu) 
    {
-      return n.f0.accept(this, null);
+      if(n.f0.which==0) return "reg"+n.f0.accept(this, null);
+      else if(n.f0.which==1) return "int"+n.f0.accept(this, null);
+      return "lab"+n.f0.accept(this, null);
    }
 
    /**
@@ -494,5 +506,4 @@ public class GJDepthFirst<R,A> implements GJVisitor<String,String> {
    {
       return null;
    }
-
 }
