@@ -48,7 +48,6 @@ int yylex (void);
 void yyerror (const char *);
 
 int store=0;
-bool found=false;
 cList *code = NULL;
 
 cList arg_list = {
@@ -69,12 +68,12 @@ cList mac_exp_list = {
 	.size = 0
 };
 
-void clearList(cList *clist);
-void printNodeList(cList/*Node*/ *clist);
 cList *newList(cNode *cnode);
+void clearList(cList *clist);
 cList *addNode(cList *clist, cNode *cnode);
+void printNodeList(cList/*Node*/ *clist);
 cList *concatList(int num, ...);
-void addMacro(cList/*mac_node*/ *list, cNode/*Node*/ *cnode, cList/*node*/ *replace);
+void addMacro(cList/*mac_node*/ *list, cNode/*Node*/ *cnode, cList/*Node*/ *replace);
 cList *replaceMacro(cList/*mac_node*/ *list, cNode/*Node*/ *cnode, cList/*clist->node*/ *arglist);
 
 %}
@@ -183,10 +182,6 @@ Statement: Lbrace StatementStar Rbrace
 			| MacIdef Lparen ExpArgs Rparen Semicolon /* Macro stmt call */
 			{
 				$$ = replaceMacro(&mac_stmt_list, $1->head, $3);
-				if($$==NULL)
-				{
-					yyerror("");
-				}
 				store--;
 				if(!store) code = concatList(2, code, $$);
 			};
@@ -242,10 +237,6 @@ Expression: PrmExp And PrmExp
 			| MacIdef Lparen ExpArgs Rparen /* Macro expr call */
 			{
 				$$ = replaceMacro(&mac_exp_list, $1->head, $3);
-				if($$==NULL)
-				{
-					yyerror("");
-				}
 				store--;
 				if(!store) code = concatList(2, code, $$);
 			}; 
@@ -503,7 +494,7 @@ void *createTempArgs(int len, bool inList)
 	return clist;
 }
 
-void renameOneArg(Node *arg, cList *repl_arg, cList/*node*/ *replace)
+void renameOneArg(Node *arg, cList *repl_arg, cList/*Node*/ *replace)
 {
 	if(replace==NULL) return;
 
@@ -527,7 +518,7 @@ void renameOneArg(Node *arg, cList *repl_arg, cList/*node*/ *replace)
 	}
 }
 
-void replace_args(cList/*node*/ *args, cList/*cList->node*/ *repl_args, cList/*node*/ *replace)
+void replace_args(cList/*Node*/ *args, cList/*cList->Node*/ *repl_args, cList/*Node*/ *replace)
 {
 	if(repl_args==NULL) return;
 
@@ -541,7 +532,7 @@ void replace_args(cList/*node*/ *args, cList/*cList->node*/ *repl_args, cList/*n
 	}
 }
 
-void addMacro(cList/*mac_node*/ *list, cNode/*Node*/ *cnode, cList/*node*/ *replace) 
+void addMacro(cList/*mac_node*/ *list, cNode/*Node*/ *cnode, cList/*Node*/ *replace) 
 {
 	replace_args(&arg_list, createTempArgs(arg_list.size, true), replace);
 	
@@ -555,10 +546,9 @@ void addMacro(cList/*mac_node*/ *list, cNode/*Node*/ *cnode, cList/*node*/ *repl
 	cNode *nnode = malloc(sizeof(cNode));
 	nnode->data = node;
 	list = addNode(list, nnode);
-	free(nnode);
 }
 
-cList *replaceMacro(cList/*mac_node*/ *list, cNode/*Node*/ *cnode, cList/*clist->node*/ *arglist) 
+cList *replaceMacro(cList/*mac_node*/ *list, cNode/*Node*/ *cnode, cList/*clist->Node*/ *arglist) 
 {
 	cNode *node = list->head;
 	Node *n = (Node *)cnode->data;
@@ -573,10 +563,11 @@ cList *replaceMacro(cList/*mac_node*/ *list, cNode/*Node*/ *cnode, cList/*clist-
 		{
 			cList *upd = copyList(mac->replace);
 			if(arglist!=NULL) replace_args(createTempArgs(arglist->size, false), arglist, upd);
-			found = true;
 			return upd;
 		}
 		node = node->next;
 	}
+
+	yyerror("");
 	return NULL;
 }

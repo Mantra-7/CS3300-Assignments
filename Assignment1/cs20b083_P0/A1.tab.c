@@ -118,7 +118,6 @@ int yylex (void);
 void yyerror (const char *);
 
 int store=0;
-bool found=false;
 cList *code = NULL;
 
 cList arg_list = {
@@ -139,16 +138,16 @@ cList mac_exp_list = {
 	.size = 0
 };
 
-void clearList(cList *clist);
-void printNodeList(cList/*Node*/ *clist);
 cList *newList(cNode *cnode);
+void clearList(cList *clist);
 cList *addNode(cList *clist, cNode *cnode);
+void printNodeList(cList/*Node*/ *clist);
 cList *concatList(int num, ...);
-void addMacro(cList/*mac_node*/ *list, cNode/*Node*/ *cnode, cList/*node*/ *replace);
+void addMacro(cList/*mac_node*/ *list, cNode/*Node*/ *cnode, cList/*Node*/ *replace);
 cList *replaceMacro(cList/*mac_node*/ *list, cNode/*Node*/ *cnode, cList/*clist->node*/ *arglist);
 
 
-#line 152 "A1.tab.c"
+#line 151 "A1.tab.c"
 
 # ifndef YY_CAST
 #  ifdef __cplusplus
@@ -245,12 +244,12 @@ extern int yydebug;
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 82 "A1.y"
+#line 81 "A1.y"
 
 cNode *node;
 cList *list;
 
-#line 254 "A1.tab.c"
+#line 253 "A1.tab.c"
 
 };
 typedef union YYSTYPE YYSTYPE;
@@ -778,18 +777,18 @@ static const yytype_int8 yytranslate[] =
 /* YYRLINE[YYN] -- Source line where rule number YYN was defined.  */
 static const yytype_int16 yyrline[] =
 {
-       0,   101,   101,   103,   105,   106,   108,   109,   111,   115,
-     119,   123,   128,   132,   136,   140,   145,   147,   148,   150,
-     152,   153,   155,   159,   163,   167,   171,   175,   179,   183,
-     194,   198,   202,   206,   210,   214,   218,   222,   226,   230,
-     234,   238,   242,   253,   254,   255,   256,   257,   258,   262,
-     266,   270,   275,   276,   278,   284,   291,   292,   294,   295,
-     300,   301,   302,   303,   304,   305,   306,   307,   308,   309,
-     310,   311,   312,   313,   314,   315,   316,   317,   319,   320,
-     321,   322,   323,   324,   325,   326,   327,   328,   329,   330,
-     331,   332,   333,   334,   335,   336,   337,   338,   339,   340,
-     341,   342,   343,   344,   345,   346,   347,   348,   349,   350,
-     351,   352,   353,   354,   355,   356,   357,   358
+       0,   100,   100,   102,   104,   105,   107,   108,   110,   114,
+     118,   122,   127,   131,   135,   139,   144,   146,   147,   149,
+     151,   152,   154,   158,   162,   166,   170,   174,   178,   182,
+     189,   193,   197,   201,   205,   209,   213,   217,   221,   225,
+     229,   233,   237,   244,   245,   246,   247,   248,   249,   253,
+     257,   261,   266,   267,   269,   275,   282,   283,   285,   286,
+     291,   292,   293,   294,   295,   296,   297,   298,   299,   300,
+     301,   302,   303,   304,   305,   306,   307,   308,   310,   311,
+     312,   313,   314,   315,   316,   317,   318,   319,   320,   321,
+     322,   323,   324,   325,   326,   327,   328,   329,   330,   331,
+     332,   333,   334,   335,   336,   337,   338,   339,   340,   341,
+     342,   343,   344,   345,   346,   347,   348,   349
 };
 #endif
 
@@ -1557,641 +1556,633 @@ yyreduce:
   switch (yyn)
     {
   case 2: /* Goal: MacDefStar MainClass TypeDecStar  */
-#line 101 "A1.y"
+#line 100 "A1.y"
                                        {printNodeList(code);}
-#line 1563 "A1.tab.c"
+#line 1562 "A1.tab.c"
     break;
 
   case 8: /* MacDefStmt: DEFSTMT MacIdef Lparen ArgIdef Comma ArgIdef Comma ArgIdef ArgIdefStar Rparen Lbrace StatementStar Rbrace  */
-#line 112 "A1.y"
+#line 111 "A1.y"
                         {
 				processMacroStmt((yyvsp[-11].list), (yyvsp[-1].list));
 			}
-#line 1571 "A1.tab.c"
+#line 1570 "A1.tab.c"
     break;
 
   case 9: /* MacDefStmt: DEFSTMT0 MacIdef Lparen Rparen Lbrace StatementStar Rbrace  */
-#line 116 "A1.y"
+#line 115 "A1.y"
                         {
 				processMacroStmt((yyvsp[-5].list), (yyvsp[-1].list));
 			}
-#line 1579 "A1.tab.c"
+#line 1578 "A1.tab.c"
     break;
 
   case 10: /* MacDefStmt: DEFSTMT1 MacIdef Lparen ArgIdef Rparen Lbrace StatementStar Rbrace  */
-#line 120 "A1.y"
+#line 119 "A1.y"
                         {
 				processMacroStmt((yyvsp[-6].list), (yyvsp[-1].list));
 			}
-#line 1587 "A1.tab.c"
+#line 1586 "A1.tab.c"
     break;
 
   case 11: /* MacDefStmt: DEFSTMT2 MacIdef Lparen ArgIdef Comma ArgIdef Rparen Lbrace StatementStar Rbrace  */
-#line 124 "A1.y"
+#line 123 "A1.y"
                         {
 				processMacroStmt((yyvsp[-8].list), (yyvsp[-1].list));
 			}
-#line 1595 "A1.tab.c"
+#line 1594 "A1.tab.c"
     break;
 
   case 12: /* MacDefExp: DEFEXP MacIdef Lparen ArgIdef Comma ArgIdef Comma ArgIdef ArgIdefStar Rparen Lparen Expression Rparen  */
-#line 129 "A1.y"
+#line 128 "A1.y"
                         {
 				processMacroExp((yyvsp[-11].list), (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
 			}
-#line 1603 "A1.tab.c"
+#line 1602 "A1.tab.c"
     break;
 
   case 13: /* MacDefExp: DEFEXP0 MacIdef Lparen Rparen Lparen Expression Rparen  */
-#line 133 "A1.y"
+#line 132 "A1.y"
                         {
 				processMacroExp((yyvsp[-5].list), (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
 			}
-#line 1611 "A1.tab.c"
+#line 1610 "A1.tab.c"
     break;
 
   case 14: /* MacDefExp: DEFEXP1 MacIdef Lparen ArgIdef Rparen Lparen Expression Rparen  */
-#line 137 "A1.y"
+#line 136 "A1.y"
                         {
 				processMacroExp((yyvsp[-6].list), (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
 			}
-#line 1619 "A1.tab.c"
+#line 1618 "A1.tab.c"
     break;
 
   case 15: /* MacDefExp: DEFEXP2 MacIdef Lparen ArgIdef Comma ArgIdef Rparen Lparen Expression Rparen  */
-#line 141 "A1.y"
+#line 140 "A1.y"
                         {
 				processMacroExp((yyvsp[-8].list), (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
 			}
-#line 1627 "A1.tab.c"
+#line 1626 "A1.tab.c"
     break;
 
   case 16: /* MacIdef: ID  */
-#line 145 "A1.y"
+#line 144 "A1.y"
             { store++; (yyval.list) = newList((yyvsp[0].node)); }
-#line 1633 "A1.tab.c"
+#line 1632 "A1.tab.c"
     break;
 
   case 19: /* ArgIdef: ID  */
-#line 150 "A1.y"
+#line 149 "A1.y"
             { addNode(&arg_list, (yyvsp[0].node)); }
-#line 1639 "A1.tab.c"
+#line 1638 "A1.tab.c"
     break;
 
   case 20: /* StatementStar: %empty  */
-#line 152 "A1.y"
+#line 151 "A1.y"
                       { if(store) (yyval.list) = NULL; }
-#line 1645 "A1.tab.c"
+#line 1644 "A1.tab.c"
     break;
 
   case 21: /* StatementStar: Statement StatementStar  */
-#line 153 "A1.y"
+#line 152 "A1.y"
                                                   { if(store) (yyval.list) = concatList(2, (yyvsp[-1].list), (yyvsp[0].list)); }
-#line 1651 "A1.tab.c"
+#line 1650 "A1.tab.c"
     break;
 
   case 22: /* Statement: Lbrace StatementStar Rbrace  */
-#line 156 "A1.y"
+#line 155 "A1.y"
                         {
 				if(store) (yyval.list) = concatList(3, (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
 			}
-#line 1659 "A1.tab.c"
+#line 1658 "A1.tab.c"
     break;
 
   case 23: /* Statement: Println Lparen Expression Rparen Semicolon  */
-#line 160 "A1.y"
+#line 159 "A1.y"
                         {
 				if(store) (yyval.list) = concatList(5, (yyvsp[-4].list), (yyvsp[-3].list), (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
 			}
-#line 1667 "A1.tab.c"
+#line 1666 "A1.tab.c"
     break;
 
   case 24: /* Statement: Idef Equal Expression Semicolon  */
-#line 164 "A1.y"
+#line 163 "A1.y"
                         {
 				if(store) (yyval.list) = concatList(4, (yyvsp[-3].list), (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
 			}
-#line 1675 "A1.tab.c"
+#line 1674 "A1.tab.c"
     break;
 
   case 25: /* Statement: Idef Lbracket Expression Rbracket Equal Expression Semicolon  */
-#line 168 "A1.y"
+#line 167 "A1.y"
                         {
 				if(store) (yyval.list) = concatList(7, (yyvsp[-6].list), (yyvsp[-5].list), (yyvsp[-4].list), (yyvsp[-3].list), (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
 			}
-#line 1683 "A1.tab.c"
+#line 1682 "A1.tab.c"
     break;
 
   case 26: /* Statement: If Lparen Expression Rparen Statement  */
-#line 172 "A1.y"
+#line 171 "A1.y"
                         {
 				if(store) (yyval.list) = concatList(5, (yyvsp[-4].list), (yyvsp[-3].list), (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
 			}
-#line 1691 "A1.tab.c"
+#line 1690 "A1.tab.c"
     break;
 
   case 27: /* Statement: If Lparen Expression Rparen Statement Else Statement  */
-#line 176 "A1.y"
+#line 175 "A1.y"
                         {
 				if(store) (yyval.list) = concatList(7, (yyvsp[-6].list), (yyvsp[-5].list), (yyvsp[-4].list), (yyvsp[-3].list), (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
 			}
-#line 1699 "A1.tab.c"
+#line 1698 "A1.tab.c"
     break;
 
   case 28: /* Statement: While Lparen Expression Rparen Statement  */
-#line 180 "A1.y"
+#line 179 "A1.y"
                         {
 				if(store) (yyval.list) = concatList(5, (yyvsp[-4].list), (yyvsp[-3].list), (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
 			}
-#line 1707 "A1.tab.c"
+#line 1706 "A1.tab.c"
     break;
 
   case 29: /* Statement: MacIdef Lparen ExpArgs Rparen Semicolon  */
-#line 184 "A1.y"
+#line 183 "A1.y"
                         {
 				(yyval.list) = replaceMacro(&mac_stmt_list, (yyvsp[-4].list)->head, (yyvsp[-2].list));
-				if((yyval.list)==NULL)
-				{
-					yyerror("");
-				}
 				store--;
 				if(!store) code = concatList(2, code, (yyval.list));
 			}
-#line 1721 "A1.tab.c"
+#line 1716 "A1.tab.c"
     break;
 
   case 30: /* Expression: PrmExp And PrmExp  */
-#line 195 "A1.y"
+#line 190 "A1.y"
                         {
 				if(store) (yyval.list) = concatList(3, (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
 			}
-#line 1729 "A1.tab.c"
+#line 1724 "A1.tab.c"
     break;
 
   case 31: /* Expression: PrmExp Or PrmExp  */
-#line 199 "A1.y"
+#line 194 "A1.y"
                         {
 				if(store) (yyval.list) = concatList(3, (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
 			}
-#line 1737 "A1.tab.c"
+#line 1732 "A1.tab.c"
     break;
 
   case 32: /* Expression: PrmExp Noteq PrmExp  */
-#line 203 "A1.y"
+#line 198 "A1.y"
                         {
 				if(store) (yyval.list) = concatList(3, (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
 			}
-#line 1745 "A1.tab.c"
+#line 1740 "A1.tab.c"
     break;
 
   case 33: /* Expression: PrmExp Lesseq PrmExp  */
-#line 207 "A1.y"
+#line 202 "A1.y"
                         {
 				if(store) (yyval.list) = concatList(3, (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
 			}
-#line 1753 "A1.tab.c"
+#line 1748 "A1.tab.c"
     break;
 
   case 34: /* Expression: PrmExp Add PrmExp  */
-#line 211 "A1.y"
+#line 206 "A1.y"
                         {
 				if(store) (yyval.list) = concatList(3, (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
 			}
-#line 1761 "A1.tab.c"
+#line 1756 "A1.tab.c"
     break;
 
   case 35: /* Expression: PrmExp Sub PrmExp  */
-#line 215 "A1.y"
+#line 210 "A1.y"
                         {
 				if(store) (yyval.list) = concatList(3, (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
 			}
-#line 1769 "A1.tab.c"
+#line 1764 "A1.tab.c"
     break;
 
   case 36: /* Expression: PrmExp Mul PrmExp  */
-#line 219 "A1.y"
+#line 214 "A1.y"
                         {
 				if(store) (yyval.list) = concatList(3, (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
 			}
-#line 1777 "A1.tab.c"
+#line 1772 "A1.tab.c"
     break;
 
   case 37: /* Expression: PrmExp Div PrmExp  */
-#line 223 "A1.y"
+#line 218 "A1.y"
                         {
 				if(store) (yyval.list) = concatList(3, (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
 			}
-#line 1785 "A1.tab.c"
+#line 1780 "A1.tab.c"
     break;
 
   case 38: /* Expression: PrmExp Lbracket PrmExp Rbracket  */
-#line 227 "A1.y"
+#line 222 "A1.y"
                         {
 				if(store) (yyval.list) = concatList(4, (yyvsp[-3].list), (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
 			}
-#line 1793 "A1.tab.c"
+#line 1788 "A1.tab.c"
     break;
 
   case 39: /* Expression: PrmExp Dot Length  */
-#line 231 "A1.y"
+#line 226 "A1.y"
                         {
 				if(store) (yyval.list) = concatList(3, (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
 			}
-#line 1801 "A1.tab.c"
+#line 1796 "A1.tab.c"
     break;
 
   case 40: /* Expression: PrmExp  */
-#line 235 "A1.y"
+#line 230 "A1.y"
                         {
 				if(store) (yyval.list) = (yyvsp[0].list);
 			}
-#line 1809 "A1.tab.c"
+#line 1804 "A1.tab.c"
     break;
 
   case 41: /* Expression: PrmExp Dot Idef Lparen CallArgs Rparen  */
-#line 239 "A1.y"
+#line 234 "A1.y"
                         {
 				if(store) (yyval.list) = concatList(6, (yyvsp[-5].list), (yyvsp[-4].list), (yyvsp[-3].list), (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
 			}
-#line 1817 "A1.tab.c"
+#line 1812 "A1.tab.c"
     break;
 
   case 42: /* Expression: MacIdef Lparen ExpArgs Rparen  */
-#line 243 "A1.y"
+#line 238 "A1.y"
                         {
 				(yyval.list) = replaceMacro(&mac_exp_list, (yyvsp[-3].list)->head, (yyvsp[-1].list));
-				if((yyval.list)==NULL)
-				{
-					yyerror("");
-				}
 				store--;
 				if(!store) code = concatList(2, code, (yyval.list));
 			}
-#line 1831 "A1.tab.c"
+#line 1822 "A1.tab.c"
     break;
 
   case 43: /* PrmExp: Integer  */
-#line 253 "A1.y"
+#line 244 "A1.y"
                 {if(store) (yyval.list) = (yyvsp[0].list);}
-#line 1837 "A1.tab.c"
+#line 1828 "A1.tab.c"
     break;
 
   case 44: /* PrmExp: True  */
-#line 254 "A1.y"
+#line 245 "A1.y"
                        {if(store) (yyval.list) = (yyvsp[0].list);}
-#line 1843 "A1.tab.c"
+#line 1834 "A1.tab.c"
     break;
 
   case 45: /* PrmExp: False  */
-#line 255 "A1.y"
+#line 246 "A1.y"
                         {if(store) (yyval.list) = (yyvsp[0].list);}
-#line 1849 "A1.tab.c"
+#line 1840 "A1.tab.c"
     break;
 
   case 46: /* PrmExp: Idef  */
-#line 256 "A1.y"
+#line 247 "A1.y"
                         {if(store) (yyval.list) = (yyvsp[0].list);}
-#line 1855 "A1.tab.c"
+#line 1846 "A1.tab.c"
     break;
 
   case 47: /* PrmExp: This  */
-#line 257 "A1.y"
+#line 248 "A1.y"
                         {if(store) (yyval.list) = (yyvsp[0].list);}
-#line 1861 "A1.tab.c"
+#line 1852 "A1.tab.c"
     break;
 
   case 48: /* PrmExp: Not Expression  */
-#line 259 "A1.y"
+#line 250 "A1.y"
                 {
 			if(store) (yyval.list) = concatList(2, (yyvsp[-1].list), (yyvsp[0].list));
 		}
-#line 1869 "A1.tab.c"
+#line 1860 "A1.tab.c"
     break;
 
   case 49: /* PrmExp: New Int Lbracket Expression Rbracket  */
-#line 263 "A1.y"
+#line 254 "A1.y"
                 {
 			if(store) (yyval.list) = concatList(5, (yyvsp[-4].list), (yyvsp[-3].list), (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
 		}
-#line 1877 "A1.tab.c"
+#line 1868 "A1.tab.c"
     break;
 
   case 50: /* PrmExp: New Idef Lparen Rparen  */
-#line 267 "A1.y"
+#line 258 "A1.y"
                 {
 			if(store) (yyval.list) = concatList(4, (yyvsp[-3].list), (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
 		}
-#line 1885 "A1.tab.c"
+#line 1876 "A1.tab.c"
     break;
 
   case 51: /* PrmExp: Lparen Expression Rparen  */
-#line 271 "A1.y"
+#line 262 "A1.y"
                 {
 			if(store) (yyval.list) = concatList(3, (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
 		}
-#line 1893 "A1.tab.c"
+#line 1884 "A1.tab.c"
     break;
 
   case 52: /* ExpArgs: %empty  */
-#line 275 "A1.y"
+#line 266 "A1.y"
                 { (yyval.list) = NULL; }
-#line 1899 "A1.tab.c"
+#line 1890 "A1.tab.c"
     break;
 
   case 53: /* ExpArgs: ExpArgsEnd  */
-#line 276 "A1.y"
+#line 267 "A1.y"
                                      { (yyval.list) = (yyvsp[0].list); }
-#line 1905 "A1.tab.c"
+#line 1896 "A1.tab.c"
     break;
 
   case 54: /* ExpArgsEnd: Expression  */
-#line 279 "A1.y"
+#line 270 "A1.y"
                         {
 				cNode *temp = malloc(sizeof(cNode));
 				temp->data = (yyvsp[0].list);
 				(yyval.list) = newList(temp);
 			}
-#line 1915 "A1.tab.c"
+#line 1906 "A1.tab.c"
     break;
 
   case 55: /* ExpArgsEnd: Expression COMMA ExpArgsEnd  */
-#line 285 "A1.y"
+#line 276 "A1.y"
                         {
 				cNode *temp = malloc(sizeof(cNode));
 				temp->data = (yyvsp[-2].list);
 				(yyval.list) = concatList(2, newList(temp), (yyvsp[0].list));
 			}
-#line 1925 "A1.tab.c"
+#line 1916 "A1.tab.c"
     break;
 
   case 56: /* CallArgs: %empty  */
-#line 291 "A1.y"
+#line 282 "A1.y"
                  { if(store) (yyval.list) = NULL; }
-#line 1931 "A1.tab.c"
+#line 1922 "A1.tab.c"
     break;
 
   case 57: /* CallArgs: CallArgsEnd  */
-#line 292 "A1.y"
+#line 283 "A1.y"
                                       { if(store) (yyval.list) = (yyvsp[0].list); }
-#line 1937 "A1.tab.c"
+#line 1928 "A1.tab.c"
     break;
 
   case 58: /* CallArgsEnd: Expression  */
-#line 294 "A1.y"
+#line 285 "A1.y"
                         { if(store) (yyval.list) = (yyvsp[0].list); }
-#line 1943 "A1.tab.c"
+#line 1934 "A1.tab.c"
     break;
 
   case 59: /* CallArgsEnd: Expression Comma CallArgsEnd  */
-#line 296 "A1.y"
+#line 287 "A1.y"
                         {
 				if(store) (yyval.list) = concatList(3, (yyvsp[-2].list), (yyvsp[-1].list), (yyvsp[0].list));
 			}
-#line 1951 "A1.tab.c"
+#line 1942 "A1.tab.c"
     break;
 
   case 78: /* Class: CLASS  */
-#line 319 "A1.y"
+#line 310 "A1.y"
                         {processTerminal((yyval.list), (yyvsp[0].node));}
-#line 1957 "A1.tab.c"
+#line 1948 "A1.tab.c"
     break;
 
   case 79: /* Public: PUBLIC  */
-#line 320 "A1.y"
+#line 311 "A1.y"
                         {processTerminal((yyval.list), (yyvsp[0].node));}
-#line 1963 "A1.tab.c"
+#line 1954 "A1.tab.c"
     break;
 
   case 80: /* Static: STATIC  */
-#line 321 "A1.y"
+#line 312 "A1.y"
                         {processTerminal((yyval.list), (yyvsp[0].node));}
-#line 1969 "A1.tab.c"
+#line 1960 "A1.tab.c"
     break;
 
   case 81: /* Void: VOID  */
-#line 322 "A1.y"
+#line 313 "A1.y"
                                 {processTerminal((yyval.list), (yyvsp[0].node));}
-#line 1975 "A1.tab.c"
+#line 1966 "A1.tab.c"
     break;
 
   case 82: /* Main: MAIN  */
-#line 323 "A1.y"
+#line 314 "A1.y"
                                 {processTerminal((yyval.list), (yyvsp[0].node));}
-#line 1981 "A1.tab.c"
+#line 1972 "A1.tab.c"
     break;
 
   case 83: /* String: STRING  */
-#line 324 "A1.y"
+#line 315 "A1.y"
                         {processTerminal((yyval.list), (yyvsp[0].node));}
-#line 1987 "A1.tab.c"
+#line 1978 "A1.tab.c"
     break;
 
   case 84: /* Println: PRINTLN  */
-#line 325 "A1.y"
+#line 316 "A1.y"
                         {processTerminal((yyval.list), (yyvsp[0].node));}
-#line 1993 "A1.tab.c"
+#line 1984 "A1.tab.c"
     break;
 
   case 85: /* Extends: EXTENDS  */
-#line 326 "A1.y"
+#line 317 "A1.y"
                         {processTerminal((yyval.list), (yyvsp[0].node));}
-#line 1999 "A1.tab.c"
+#line 1990 "A1.tab.c"
     break;
 
   case 86: /* Return: RETURN  */
-#line 327 "A1.y"
+#line 318 "A1.y"
                         {processTerminal((yyval.list), (yyvsp[0].node));}
-#line 2005 "A1.tab.c"
+#line 1996 "A1.tab.c"
     break;
 
   case 87: /* Int: INT  */
-#line 328 "A1.y"
+#line 319 "A1.y"
                                 {processTerminal((yyval.list), (yyvsp[0].node));}
-#line 2011 "A1.tab.c"
+#line 2002 "A1.tab.c"
     break;
 
   case 88: /* Boolean: BOOLEAN  */
-#line 329 "A1.y"
+#line 320 "A1.y"
                         {processTerminal((yyval.list), (yyvsp[0].node));}
-#line 2017 "A1.tab.c"
+#line 2008 "A1.tab.c"
     break;
 
   case 89: /* If: IF  */
-#line 330 "A1.y"
+#line 321 "A1.y"
                                 {processTerminal((yyval.list), (yyvsp[0].node));}
-#line 2023 "A1.tab.c"
+#line 2014 "A1.tab.c"
     break;
 
   case 90: /* Else: ELSE  */
-#line 331 "A1.y"
+#line 322 "A1.y"
                         {processTerminal((yyval.list), (yyvsp[0].node));}
-#line 2029 "A1.tab.c"
+#line 2020 "A1.tab.c"
     break;
 
   case 91: /* While: WHILE  */
-#line 332 "A1.y"
+#line 323 "A1.y"
                         {processTerminal((yyval.list), (yyvsp[0].node));}
-#line 2035 "A1.tab.c"
+#line 2026 "A1.tab.c"
     break;
 
   case 92: /* True: TRUE  */
-#line 333 "A1.y"
+#line 324 "A1.y"
                                 {processTerminal((yyval.list), (yyvsp[0].node));}
-#line 2041 "A1.tab.c"
+#line 2032 "A1.tab.c"
     break;
 
   case 93: /* False: FALSE  */
-#line 334 "A1.y"
+#line 325 "A1.y"
                         {processTerminal((yyval.list), (yyvsp[0].node));}
-#line 2047 "A1.tab.c"
+#line 2038 "A1.tab.c"
     break;
 
   case 94: /* This: THIS  */
-#line 335 "A1.y"
+#line 326 "A1.y"
                                 {processTerminal((yyval.list), (yyvsp[0].node));}
-#line 2053 "A1.tab.c"
+#line 2044 "A1.tab.c"
     break;
 
   case 95: /* New: NEW  */
-#line 336 "A1.y"
+#line 327 "A1.y"
                                 {processTerminal((yyval.list), (yyvsp[0].node));}
-#line 2059 "A1.tab.c"
+#line 2050 "A1.tab.c"
     break;
 
   case 96: /* Length: LENGTH  */
-#line 337 "A1.y"
+#line 328 "A1.y"
                         {processTerminal((yyval.list), (yyvsp[0].node));}
-#line 2065 "A1.tab.c"
+#line 2056 "A1.tab.c"
     break;
 
   case 97: /* Lparen: LPAREN  */
-#line 338 "A1.y"
+#line 329 "A1.y"
                         {processTerminal((yyval.list), (yyvsp[0].node));}
-#line 2071 "A1.tab.c"
+#line 2062 "A1.tab.c"
     break;
 
   case 98: /* Rparen: RPAREN  */
-#line 339 "A1.y"
+#line 330 "A1.y"
                         {processTerminal((yyval.list), (yyvsp[0].node));}
-#line 2077 "A1.tab.c"
+#line 2068 "A1.tab.c"
     break;
 
   case 99: /* Lbrace: LBRACE  */
-#line 340 "A1.y"
+#line 331 "A1.y"
                         {processTerminal((yyval.list), (yyvsp[0].node));}
-#line 2083 "A1.tab.c"
+#line 2074 "A1.tab.c"
     break;
 
   case 100: /* Rbrace: RBRACE  */
-#line 341 "A1.y"
+#line 332 "A1.y"
                         {processTerminal((yyval.list), (yyvsp[0].node));}
-#line 2089 "A1.tab.c"
+#line 2080 "A1.tab.c"
     break;
 
   case 101: /* Lbracket: LBRACKET  */
-#line 342 "A1.y"
+#line 333 "A1.y"
                         {processTerminal((yyval.list), (yyvsp[0].node));}
-#line 2095 "A1.tab.c"
+#line 2086 "A1.tab.c"
     break;
 
   case 102: /* Rbracket: RBRACKET  */
-#line 343 "A1.y"
+#line 334 "A1.y"
                         {processTerminal((yyval.list), (yyvsp[0].node));}
-#line 2101 "A1.tab.c"
+#line 2092 "A1.tab.c"
     break;
 
   case 103: /* Semicolon: SEMICOLON  */
-#line 344 "A1.y"
+#line 335 "A1.y"
                      {processTerminal((yyval.list), (yyvsp[0].node));}
-#line 2107 "A1.tab.c"
+#line 2098 "A1.tab.c"
     break;
 
   case 104: /* Comma: COMMA  */
-#line 345 "A1.y"
+#line 336 "A1.y"
                         {processTerminal((yyval.list), (yyvsp[0].node));}
-#line 2113 "A1.tab.c"
+#line 2104 "A1.tab.c"
     break;
 
   case 105: /* And: AND  */
-#line 346 "A1.y"
+#line 337 "A1.y"
                                 {processTerminal((yyval.list), (yyvsp[0].node));}
-#line 2119 "A1.tab.c"
+#line 2110 "A1.tab.c"
     break;
 
   case 106: /* Or: OR  */
-#line 347 "A1.y"
+#line 338 "A1.y"
                                 {processTerminal((yyval.list), (yyvsp[0].node));}
-#line 2125 "A1.tab.c"
+#line 2116 "A1.tab.c"
     break;
 
   case 107: /* Not: NOT  */
-#line 348 "A1.y"
+#line 339 "A1.y"
                                 {processTerminal((yyval.list), (yyvsp[0].node));}
-#line 2131 "A1.tab.c"
+#line 2122 "A1.tab.c"
     break;
 
   case 108: /* Noteq: NOTEQ  */
-#line 349 "A1.y"
+#line 340 "A1.y"
                         {processTerminal((yyval.list), (yyvsp[0].node));}
-#line 2137 "A1.tab.c"
+#line 2128 "A1.tab.c"
     break;
 
   case 109: /* Lesseq: LESSEQ  */
-#line 350 "A1.y"
+#line 341 "A1.y"
                         {processTerminal((yyval.list), (yyvsp[0].node));}
-#line 2143 "A1.tab.c"
+#line 2134 "A1.tab.c"
     break;
 
   case 110: /* Equal: EQUAL  */
-#line 351 "A1.y"
+#line 342 "A1.y"
                         {processTerminal((yyval.list), (yyvsp[0].node));}
-#line 2149 "A1.tab.c"
+#line 2140 "A1.tab.c"
     break;
 
   case 111: /* Add: ADD  */
-#line 352 "A1.y"
+#line 343 "A1.y"
                                 {processTerminal((yyval.list), (yyvsp[0].node));}
-#line 2155 "A1.tab.c"
+#line 2146 "A1.tab.c"
     break;
 
   case 112: /* Sub: SUB  */
-#line 353 "A1.y"
+#line 344 "A1.y"
                                 {processTerminal((yyval.list), (yyvsp[0].node));}
-#line 2161 "A1.tab.c"
+#line 2152 "A1.tab.c"
     break;
 
   case 113: /* Mul: MUL  */
-#line 354 "A1.y"
+#line 345 "A1.y"
                                 {processTerminal((yyval.list), (yyvsp[0].node));}
-#line 2167 "A1.tab.c"
+#line 2158 "A1.tab.c"
     break;
 
   case 114: /* Div: DIV  */
-#line 355 "A1.y"
+#line 346 "A1.y"
                                 {processTerminal((yyval.list), (yyvsp[0].node));}
-#line 2173 "A1.tab.c"
+#line 2164 "A1.tab.c"
     break;
 
   case 115: /* Dot: DOT  */
-#line 356 "A1.y"
+#line 347 "A1.y"
                                 {processTerminal((yyval.list), (yyvsp[0].node));}
-#line 2179 "A1.tab.c"
+#line 2170 "A1.tab.c"
     break;
 
   case 116: /* Idef: ID  */
-#line 357 "A1.y"
+#line 348 "A1.y"
                                 {processTerminal((yyval.list), (yyvsp[0].node));}
-#line 2185 "A1.tab.c"
+#line 2176 "A1.tab.c"
     break;
 
   case 117: /* Integer: INTEGER  */
-#line 358 "A1.y"
+#line 349 "A1.y"
                         {processTerminal((yyval.list), (yyvsp[0].node));}
-#line 2191 "A1.tab.c"
+#line 2182 "A1.tab.c"
     break;
 
 
-#line 2195 "A1.tab.c"
+#line 2186 "A1.tab.c"
 
       default: break;
     }
@@ -2384,7 +2375,7 @@ yyreturnlab:
   return yyresult;
 }
 
-#line 359 "A1.y"
+#line 350 "A1.y"
 
 
 void yyerror (const char *s) 
@@ -2532,7 +2523,7 @@ void *createTempArgs(int len, bool inList)
 	return clist;
 }
 
-void renameOneArg(Node *arg, cList *repl_arg, cList/*node*/ *replace)
+void renameOneArg(Node *arg, cList *repl_arg, cList/*Node*/ *replace)
 {
 	if(replace==NULL) return;
 
@@ -2556,7 +2547,7 @@ void renameOneArg(Node *arg, cList *repl_arg, cList/*node*/ *replace)
 	}
 }
 
-void replace_args(cList/*node*/ *args, cList/*cList->node*/ *repl_args, cList/*node*/ *replace)
+void replace_args(cList/*Node*/ *args, cList/*cList->Node*/ *repl_args, cList/*Node*/ *replace)
 {
 	if(repl_args==NULL) return;
 
@@ -2570,7 +2561,7 @@ void replace_args(cList/*node*/ *args, cList/*cList->node*/ *repl_args, cList/*n
 	}
 }
 
-void addMacro(cList/*mac_node*/ *list, cNode/*Node*/ *cnode, cList/*node*/ *replace) 
+void addMacro(cList/*mac_node*/ *list, cNode/*Node*/ *cnode, cList/*Node*/ *replace) 
 {
 	replace_args(&arg_list, createTempArgs(arg_list.size, true), replace);
 	
@@ -2584,10 +2575,9 @@ void addMacro(cList/*mac_node*/ *list, cNode/*Node*/ *cnode, cList/*node*/ *repl
 	cNode *nnode = malloc(sizeof(cNode));
 	nnode->data = node;
 	list = addNode(list, nnode);
-	free(nnode);
 }
 
-cList *replaceMacro(cList/*mac_node*/ *list, cNode/*Node*/ *cnode, cList/*clist->node*/ *arglist) 
+cList *replaceMacro(cList/*mac_node*/ *list, cNode/*Node*/ *cnode, cList/*clist->Node*/ *arglist) 
 {
 	cNode *node = list->head;
 	Node *n = (Node *)cnode->data;
@@ -2602,10 +2592,11 @@ cList *replaceMacro(cList/*mac_node*/ *list, cNode/*Node*/ *cnode, cList/*clist-
 		{
 			cList *upd = copyList(mac->replace);
 			if(arglist!=NULL) replace_args(createTempArgs(arglist->size, false), arglist, upd);
-			found = true;
 			return upd;
 		}
 		node = node->next;
 	}
+
+	yyerror("");
 	return NULL;
 }
