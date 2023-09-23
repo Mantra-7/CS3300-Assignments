@@ -6,9 +6,9 @@ class Main
 	}
 }
 
-class urMom_abdullah_told_me{
-	public int dad(int x, boolean x)
+class Test{
+	public int ff(int x, boolean x)
 	{
-		return 69;
+		return 70;
 	}
 }

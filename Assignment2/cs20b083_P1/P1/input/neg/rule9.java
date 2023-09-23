@@ -6,7 +6,7 @@ class Main
 	}
 }
 
-class urMom_abdullah_told_me{
+class Test{
 	int x;
 	boolean x;
 }
