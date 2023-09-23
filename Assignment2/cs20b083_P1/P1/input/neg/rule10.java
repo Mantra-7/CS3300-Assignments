@@ -18,9 +18,9 @@ class A
 	}
 }
 
-class urMom_abdullah_told_me extends A{
-	public int dad(int x)
+class Test extends A{
+	public int ff(int x)
 	{
-		return 69;
+		return 70;
 	}
 }
